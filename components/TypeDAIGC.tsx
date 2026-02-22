@@ -8,6 +8,7 @@ import {
   useScroll,
   useVelocity,
   useInView,
+  useReducedMotion,
   animate,
   MotionValue,
 } from "framer-motion";
@@ -360,8 +361,216 @@ function FloatingOrb({ style }: { style?: React.CSSProperties }) {
   );
 }
 
+type SwapCardItem = {
+  src: string;
+  alt: string;
+  objectPosition?: string;
+};
+
+function ApproachCardSwap({
+  cards,
+  delay = 5200,
+  cardDistance = 74,
+  verticalDistance = 80,
+  skewAmount = 0,
+}: {
+  cards: SwapCardItem[];
+  delay?: number;
+  cardDistance?: number;
+  verticalDistance?: number;
+  skewAmount?: number;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const total = cards.length;
+  const [order, setOrder] = useState<number[]>(
+    () => Array.from({ length: total }, (_, i) => total - 1 - i)
+  );
+  const orderRef = useRef<number[]>(order);
+  const [phase, setPhase] = useState<"idle" | "drop" | "promote">("idle");
+  const [droppingId, setDroppingId] = useState<number | null>(null);
+  const isPausedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(containerRef, { amount: 0.45, once: false });
+  const isAnimatingRef = useRef(false);
+  const dropTimerRef = useRef<number | null>(null);
+  const finishTimerRef = useRef<number | null>(null);
+
+  const makeSlot = (i: number) => ({
+    x: i * cardDistance,
+    y: -i * verticalDistance,
+    z: -i * cardDistance * 1.4,
+    zIndex: total - i,
+  });
+
+  const clearSwapTimers = () => {
+    if (dropTimerRef.current !== null) {
+      window.clearTimeout(dropTimerRef.current);
+      dropTimerRef.current = null;
+    }
+    if (finishTimerRef.current !== null) {
+      window.clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
+    }
+    isAnimatingRef.current = false;
+  };
+
+  const runSwap = () => {
+    if (isPausedRef.current || isAnimatingRef.current || orderRef.current.length < 2) return;
+    isAnimatingRef.current = true;
+
+    const [front, ...rest] = orderRef.current;
+    setPhase("drop");
+    setDroppingId(front);
+
+    dropTimerRef.current = window.setTimeout(() => {
+      const nextOrder = [...rest, front];
+      orderRef.current = nextOrder;
+      setOrder(nextOrder);
+      setPhase("promote");
+
+      finishTimerRef.current = window.setTimeout(() => {
+        setDroppingId(null);
+        setPhase("idle");
+        isAnimatingRef.current = false;
+      }, 260);
+    }, 900);
+  };
+
+  useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+
+  useEffect(() => {
+    if (!inView || total < 2) {
+      clearSwapTimers();
+      setDroppingId(null);
+      setPhase("idle");
+      return;
+    }
+
+    runSwap();
+    const interval = window.setInterval(runSwap, delay);
+
+    return () => {
+      window.clearInterval(interval);
+      clearSwapTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inView, delay, total]);
+
+  useEffect(() => {
+    return () => clearSwapTimers();
+  }, []);
+
+  const cardAngles = [8, -8, -14];
+  const driftPatterns = [
+    { rx: [0, 2.4, 0, -1.8, 0], ry: [0, -2.8, 0, 2.2, 0], y: [0, -6, 0, 5, 0], scale: [1, 1.01, 1, 1.008, 1], duration: 6.2 },
+    { rx: [0, -2.1, 0, 2.6, 0], ry: [0, 2.4, 0, -2.2, 0], y: [0, 5, 0, -6, 0], scale: [1, 1.008, 1, 1.012, 1], duration: 6.8 },
+    { rx: [0, 2.8, 0, -2.3, 0], ry: [0, -2.2, 0, 2.6, 0], y: [0, -5, 0, 6, 0], scale: [1, 1.011, 1, 1.009, 1], duration: 7.1 },
+  ];
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-[430px] md:h-[590px] lg:h-[650px] [perspective:1400px]"
+      onMouseEnter={() => {
+        isPausedRef.current = true;
+      }}
+      onMouseLeave={() => {
+        isPausedRef.current = false;
+      }}
+    >
+      {cards.map((card, idx) => {
+        const slotIndex = order.indexOf(idx);
+        if (slotIndex < 0) return null;
+
+        const slot = makeSlot(slotIndex);
+        const isDropping = droppingId === idx;
+        const zIndex = isDropping && phase === "drop" ? total + 3 : slot.zIndex;
+        const drift = driftPatterns[idx % driftPatterns.length];
+
+        return (
+          <motion.figure
+            key={card.src}
+            className="absolute left-[2%] top-[34%] md:top-[35%] w-[74%] md:w-[72%] aspect-video overflow-hidden rounded-sm border border-white/10 bg-black/10 shadow-[0_18px_44px_rgba(4,98,65,0.24)]"
+            style={{
+              zIndex,
+              transformStyle: "preserve-3d",
+            }}
+            animate={{
+              x: slot.x,
+              y: isDropping ? slot.y + 420 : slot.y,
+              z: slot.z,
+              rotate: cardAngles[idx % cardAngles.length],
+              skewY: skewAmount,
+            }}
+            transition={
+              isDropping && phase === "drop"
+                ? { duration: 0.9, ease: [0.22, 1, 0.36, 1] }
+                : {
+                    duration: 0.95,
+                    delay: phase === "promote" ? slotIndex * 0.08 : 0,
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+            }
+            whileHover={{ scale: 1.02 }}
+          >
+            <motion.div
+              className="h-full w-full [transform-style:preserve-3d]"
+              animate={
+                shouldReduceMotion
+                  ? undefined
+                  : {
+                      rotateX: drift.rx,
+                      rotateY: drift.ry,
+                      y: drift.y,
+                      scale: drift.scale,
+                    }
+              }
+              transition={
+                shouldReduceMotion
+                  ? undefined
+                  : {
+                      duration: drift.duration,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: idx * 0.32,
+                    }
+              }
+            >
+              <img
+                src={card.src}
+                alt={card.alt}
+                className="h-full w-full object-cover"
+                style={card.objectPosition ? { objectPosition: card.objectPosition } : undefined}
+              />
+            </motion.div>
+          </motion.figure>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────
 export default function TypeDAIGC() {
+  const approachCards: SwapCardItem[] = [
+    {
+      src: collageImages[0],
+      alt: "AIGC visual frame 1",
+      objectPosition: "center 28%",
+    },
+    {
+      src: collageImages[1],
+      alt: "AIGC visual frame 2",
+    },
+    {
+      src: collageImages[2],
+      alt: "AIGC visual frame 3",
+      objectPosition: "center 42%",
+    },
+  ];
+
   return (
     <motion.section
       className="bg-brand-paper dark:bg-brand-dark transition-colors duration-500 relative overflow-hidden"
@@ -457,59 +666,7 @@ export default function TypeDAIGC() {
             </motion.p>
           </div>
 
-          {/* Stacked tilt cards */}
-          <div className="relative h-[430px] md:h-[590px] lg:h-[650px]">
-            <TiltCard
-              delay={0.05}
-              scale={1.03}
-              rotateZ={4}
-              autoTilt
-              autoPhase={0}
-              autoAmplitude={5.5}
-              autoSpeedX={1.1}
-              className="absolute left-[20%] top-[2%] w-[64%] aspect-video rounded-sm overflow-hidden shadow-[0_12px_30px_rgba(4,98,65,0.18)] z-10"
-            >
-              <img
-                src={collageImages[0]}
-                alt="AIGC visual frame 1"
-                className="w-full h-full object-cover"
-                style={{ objectPosition: "center 28%" }}
-              />
-            </TiltCard>
-            <TiltCard
-              delay={0.14}
-              scale={1.03}
-              rotateZ={-4}
-              autoTilt
-              autoPhase={1.6}
-              autoAmplitude={4.8}
-              autoSpeedX={0.95}
-              className="absolute left-[10%] top-[20%] w-[64%] aspect-video rounded-sm overflow-hidden shadow-[0_18px_32px_rgba(4,98,65,0.2)] z-20"
-            >
-              <img
-                src={collageImages[1]}
-                alt="AIGC visual frame 3"
-                className="w-full h-full object-cover"
-              />
-            </TiltCard>
-            <TiltCard
-              delay={0.22}
-              scale={1.03}
-              rotateZ={-8}
-              autoTilt
-              autoPhase={3.1}
-              autoAmplitude={5.2}
-              autoSpeedX={1.15}
-              className="absolute left-[6%] top-[38%] w-[64%] aspect-video rounded-sm overflow-hidden shadow-[0_22px_38px_rgba(4,98,65,0.24)] z-30"
-            >
-              <img
-                src={collageImages[2]}
-                alt="AIGC visual frame 4"
-                className="w-full h-full object-cover"
-                style={{ objectPosition: "center 42%" }}
-              />
-            </TiltCard>
-          </div>
+          <ApproachCardSwap cards={approachCards} />
         </motion.section>
 
         <ShimmerLine delay={0.05} />

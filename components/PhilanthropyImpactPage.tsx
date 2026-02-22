@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   motion,
   useMotionValue,
@@ -137,9 +137,21 @@ function GlobalStyles() {
       }
       .dark ._lw-art-num { -webkit-text-stroke: 1px rgba(255,255,255,.05); }
 
+      /* scroll stack */
+      ._lw-stack-scroller { position: relative; }
+      ._lw-stack-inner { position: relative; }
+      ._lw-stack-card {
+        position: relative;
+        transform-origin: top center;
+        backface-visibility: hidden;
+        will-change: transform, filter;
+      }
+      ._lw-stack-end { height: 36vh; }
+
       @media (prefers-reduced-motion:reduce) {
         ._lw-intro,._lw-float,._lw-spin,._lw-glow,._lw-card-shine { animation:none!important; }
         ._lw-card { transition:none!important; transform:none!important; }
+        ._lw-stack-card { transform:none!important; filter:none!important; }
         ._lw-intro { display:none!important; }
       }
     `}</style>
@@ -419,6 +431,275 @@ function PulseDot({ color = "#046241" }: { color?: string }) {
 }
 
 // ─── PAGE ──────────────────────────────────────────────────────────────────
+function ScrollStackItem({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <div className={`_lw-stack-card ${className}`.trim()}>{children}</div>;
+}
+
+function ScrollStack({
+  children,
+  className = "",
+  itemDistance = 120,
+  itemScale = 0.04,
+  itemStackDistance = 34,
+  stackPosition = "20%",
+  scaleEndPosition = "9%",
+  baseScale = 0.86,
+  rotationAmount = 0,
+  blurAmount = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  itemDistance?: number;
+  itemScale?: number;
+  itemStackDistance?: number;
+  stackPosition?: string | number;
+  scaleEndPosition?: string | number;
+  baseScale?: number;
+  rotationAmount?: number;
+  blurAmount?: number;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const cardsRef = useRef<HTMLDivElement[]>([]);
+  const renderedTransformsRef = useRef(
+    new Map<number, { translateY: number; scale: number; rotation: number; blur: number }>()
+  );
+  const targetTransformsRef = useRef(
+    new Map<number, { translateY: number; scale: number; rotation: number; blur: number }>()
+  );
+  const smoothRafRef = useRef<number | null>(null);
+
+  const calculateProgress = useCallback((scrollTop: number, start: number, end: number) => {
+    if (end <= start) return scrollTop >= end ? 1 : 0;
+    if (scrollTop < start) return 0;
+    if (scrollTop > end) return 1;
+    return (scrollTop - start) / (end - start);
+  }, []);
+
+  const parsePosition = useCallback((value: string | number, containerHeight: number) => {
+    if (typeof value === "string" && value.includes("%")) {
+      return (parseFloat(value) / 100) * containerHeight;
+    }
+    return typeof value === "number" ? value : parseFloat(value);
+  }, []);
+
+  const getOffsetTop = useCallback((el: HTMLElement) => {
+    let top = el.offsetTop;
+    let parent = el.offsetParent as HTMLElement | null;
+    while (parent) {
+      top += parent.offsetTop;
+      parent = parent.offsetParent as HTMLElement | null;
+    }
+    return top;
+  }, []);
+
+  const resetTransforms = useCallback(() => {
+    if (smoothRafRef.current !== null) {
+      cancelAnimationFrame(smoothRafRef.current);
+      smoothRafRef.current = null;
+    }
+
+    cardsRef.current.forEach((card, i) => {
+      if (i < cardsRef.current.length - 1) {
+        card.style.marginBottom = `${itemDistance}px`;
+      }
+      card.style.transform = "";
+      card.style.filter = "";
+    });
+    renderedTransformsRef.current.clear();
+    targetTransformsRef.current.clear();
+  }, [itemDistance]);
+
+  const animateTowardTargets = useCallback(() => {
+    if (smoothRafRef.current !== null) return;
+
+    const tick = () => {
+      const cards = cardsRef.current;
+      if (!cards.length) {
+        smoothRafRef.current = null;
+        return;
+      }
+
+      let hasPending = false;
+
+      cards.forEach((card, i) => {
+        const target = targetTransformsRef.current.get(i);
+        if (!target) return;
+
+        const current = renderedTransformsRef.current.get(i) ?? target;
+        const easing = 0.18;
+        const next = {
+          translateY: current.translateY + (target.translateY - current.translateY) * easing,
+          scale: current.scale + (target.scale - current.scale) * easing,
+          rotation: current.rotation + (target.rotation - current.rotation) * easing,
+          blur: current.blur + (target.blur - current.blur) * easing,
+        };
+
+        const isSettled =
+          Math.abs(next.translateY - target.translateY) < 0.08 &&
+          Math.abs(next.scale - target.scale) < 0.001 &&
+          Math.abs(next.rotation - target.rotation) < 0.08 &&
+          Math.abs(next.blur - target.blur) < 0.08;
+
+        const applied = isSettled ? target : next;
+        if (!isSettled) {
+          hasPending = true;
+        }
+
+        card.style.transform = `translate3d(0, ${applied.translateY.toFixed(2)}px, 0) scale(${applied.scale.toFixed(3)}) rotate(${applied.rotation.toFixed(2)}deg)`;
+        card.style.filter = applied.blur > 0.02 ? `blur(${applied.blur.toFixed(2)}px)` : "";
+        renderedTransformsRef.current.set(i, applied);
+      });
+
+      if (hasPending) {
+        smoothRafRef.current = requestAnimationFrame(tick);
+      } else {
+        smoothRafRef.current = null;
+      }
+    };
+
+    smoothRafRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const updateCardTargets = useCallback(() => {
+    const scroller = scrollerRef.current;
+    const cards = cardsRef.current;
+    if (!scroller || !cards.length) return;
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+    const isDesktop = window.innerWidth >= 768;
+    if (reduceMotion || !isDesktop) {
+      resetTransforms();
+      return;
+    }
+
+    const scrollTop = window.scrollY;
+    const containerHeight = window.innerHeight;
+    const stackPositionPx = parsePosition(stackPosition, containerHeight);
+    const scaleEndPositionPx = parsePosition(scaleEndPosition, containerHeight);
+    const endElement = scroller.querySelector<HTMLElement>("._lw-stack-end");
+    const endElementTop = endElement ? getOffsetTop(endElement) : 0;
+    const pinEnd = endElementTop - containerHeight / 2;
+
+    let topCardIndex = 0;
+    for (let j = 0; j < cards.length; j += 1) {
+      const jCardTop = getOffsetTop(cards[j]);
+      const jTriggerStart = jCardTop - stackPositionPx - itemStackDistance * j;
+      if (scrollTop >= jTriggerStart) {
+        topCardIndex = j;
+      }
+    }
+
+    cards.forEach((card, i) => {
+      const cardTop = getOffsetTop(card);
+      const triggerStart = cardTop - stackPositionPx - itemStackDistance * i;
+      const triggerEnd = cardTop - scaleEndPositionPx;
+      const pinStart = triggerStart;
+
+      const scaleProgress = calculateProgress(scrollTop, triggerStart, triggerEnd);
+      const targetScale = baseScale + i * itemScale;
+      const scale = 1 - scaleProgress * (1 - targetScale);
+      const rotation = rotationAmount ? i * rotationAmount * scaleProgress : 0;
+
+      let blur = 0;
+      if (blurAmount && i < topCardIndex) {
+        blur = Math.max(0, (topCardIndex - i) * blurAmount);
+      }
+
+      let translateY = 0;
+      const isPinned = scrollTop >= pinStart && scrollTop <= pinEnd;
+      if (isPinned) {
+        translateY = scrollTop - cardTop + stackPositionPx + itemStackDistance * i;
+      } else if (scrollTop > pinEnd) {
+        translateY = pinEnd - cardTop + stackPositionPx + itemStackDistance * i;
+      }
+
+      const nextTransform = {
+        translateY,
+        scale,
+        rotation,
+        blur,
+      };
+
+      targetTransformsRef.current.set(i, nextTransform);
+    });
+
+    animateTowardTargets();
+  }, [
+    animateTowardTargets,
+    baseScale,
+    blurAmount,
+    calculateProgress,
+    getOffsetTop,
+    itemScale,
+    itemStackDistance,
+    parsePosition,
+    resetTransforms,
+    rotationAmount,
+    scaleEndPosition,
+    stackPosition,
+  ]);
+
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const cards = Array.from(scroller.querySelectorAll<HTMLDivElement>("._lw-stack-card"));
+    cardsRef.current = cards;
+
+    cards.forEach((card, i) => {
+      // Keep later cards above earlier cards so stack order becomes:
+      // Partnership (back) -> Application (middle) -> Expanding (front)
+      card.style.zIndex = String(i + 1);
+      if (i < cards.length - 1) {
+        card.style.marginBottom = `${itemDistance}px`;
+      }
+      card.style.transformOrigin = "top center";
+      card.style.backfaceVisibility = "hidden";
+    });
+
+    let raf = 0;
+    const queueUpdate = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        updateCardTargets();
+      });
+    };
+
+    queueUpdate();
+    window.addEventListener("scroll", queueUpdate, { passive: true });
+    window.addEventListener("resize", queueUpdate);
+
+    return () => {
+      window.removeEventListener("scroll", queueUpdate);
+      window.removeEventListener("resize", queueUpdate);
+      if (raf) cancelAnimationFrame(raf);
+      if (smoothRafRef.current !== null) {
+        cancelAnimationFrame(smoothRafRef.current);
+        smoothRafRef.current = null;
+      }
+      cardsRef.current = [];
+      renderedTransformsRef.current.clear();
+      targetTransformsRef.current.clear();
+    };
+  }, [itemDistance, updateCardTargets]);
+
+  return (
+    <div className={`_lw-stack-scroller ${className}`.trim()} ref={scrollerRef}>
+      <div className="_lw-stack-inner">
+        {children}
+        <div className="_lw-stack-end" />
+      </div>
+    </div>
+  );
+}
+
 export default function PhilanthropyImpactPage() {
   const heroSection = useRef<HTMLElement>(null);
   const heroImage = useRef<HTMLDivElement>(null);
@@ -648,11 +929,11 @@ export default function PhilanthropyImpactPage() {
           </Reveal>
 
           {/* Articles */}
-          {ARTICLES.map((a, idx) => (
-            <React.Fragment key={a.num}>
-              <Divider delay={0.04} />
-              <Reveal delay={0.04} className="py-14">
-                <article className="relative">
+          <ScrollStack>
+            {ARTICLES.map((a) => (
+              <ScrollStackItem key={a.num} className="py-14 bg-brand-paper dark:bg-brand-dark">
+                <Divider delay={0.04} />
+                <article className="relative pt-14">
                   {/* Watermark number */}
                   <div aria-hidden className="_lw-art-num absolute -top-4 left-0 select-none">
                     {a.num}
@@ -700,9 +981,9 @@ export default function PhilanthropyImpactPage() {
                     </TiltCard>
                   </div>
                 </article>
-              </Reveal>
-            </React.Fragment>
-          ))}
+              </ScrollStackItem>
+            ))}
+          </ScrollStack>
         </div>
       </section>
 
