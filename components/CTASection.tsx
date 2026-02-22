@@ -52,7 +52,7 @@ const CTASection: React.FC = () => {
           >
             <a
               href="/offices"
-              className="bg-[#FFB347] dark:bg-[#FFB347] text-[#0B2518] dark:text-[#0B2518] px-12 py-6 rounded-full font-black text-xl uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-[#FFB347]/35 whitespace-nowrap"
+              className="bg-[#FFB347] dark:bg-[#FFB347] text-[#0B2518] dark:text-[#0B2518] px-12 py-6 rounded-full font-black text-xl tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-[#FFB347]/35 whitespace-nowrap"
             >
               See Locations
             </a>
