@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lifewood Data Technology</title>
+    <link rel="icon" href="https://framerusercontent.com/images/mmBfl11ZRTsDKI8lhNBYvZHIEMo.png" />
+    <link rel="apple-touch-icon" href="https://framerusercontent.com/images/mmBfl11ZRTsDKI8lhNBYvZHIEMo.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@1,400;1,700&display=swap" rel="stylesheet">
+    <script>
+      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Manrope', 'sans-serif'],
+              display: ['Manrope', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+            },
+            colors: {
+              brand: {
+                dark: '#0B2518', 
+                primary: '#046241',
+                saffron: '#FFB347',
+                earth: '#FFC370',
+                paper: '#FDFCF5',
+                seasalt: '#F9F7F7',
+                emerald: '#10B981',
+              }
+            },
+            borderRadius: {
+              'custom': '2.5rem',
+              'mega': '3.5rem',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+      body:not(.dark) {
+        background-color: #FDFCF5; /* brand-paper */
+        color: #0B2518; /* brand-dark */
+      }
+      .dark body {
+        background-color: #0B2518;
+        color: #F9F7F7;
+      }
+      .glass {
+        background: rgba(253, 252, 245, 0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      .dark .glass {
+        background: rgba(11, 37, 24, 0.6);
+      }
+      .text-balance {
+        text-wrap: balance;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #FDFCF5;
+      }
+      .dark ::-webkit-scrollbar-track {
+        background: #0B2518;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #046241;
+        border-radius: 10px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #FFB347;
+      }
+      /* Hide scrollbars for non-document scrollable elements (prevents duplicate side scrollbars) */
+      *:not(html):not(body) {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+      *:not(html):not(body)::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+      }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "framer-motion": "https://esm.sh/framer-motion@11.11.17?external=react,react-dom",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
