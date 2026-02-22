@@ -387,7 +387,7 @@ const AboutUsPage: React.FC = () => {
               {/* Eyebrow */}
               <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white dark:bg-[#1a3326] border border-[#046241]/15 dark:border-[#4ade80]/20 shadow-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347] animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#046241] dark:text-[#4ade80]">About</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#046241] dark:text-[#4ade80]">About Us</span>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 items-end">
