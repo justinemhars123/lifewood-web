@@ -9,7 +9,15 @@ type Office = {
   address?: string | string[]
 }
 
-export default function OfficeMap({ offices = [] }: { offices?: Office[] }): JSX.Element {
+type OfficeMapProps = {
+  offices?: Office[]
+  activeOffice?: Office | null
+}
+
+export default function OfficeMap({ offices = [], activeOffice = null }: OfficeMapProps): JSX.Element {
+  void offices
+  void activeOffice
+
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
       <div className="relative h-96 md:h-[460px] lg:h-[520px] bg-brand-paper dark:bg-brand-dark">
@@ -24,7 +32,6 @@ export default function OfficeMap({ offices = [] }: { offices?: Office[] }): JSX
           <iframe
             src="https://lifewoodworldwidemap.vercel.app/"
             loading="lazy"
-            fetchPriority="auto"
             referrerPolicy="no-referrer"
             sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
             title="Lifewood World Map"

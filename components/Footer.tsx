@@ -10,7 +10,7 @@ type SocialItem = {
 const socials: SocialItem[] = [
   {
     name: "LinkedIn",
-    href: "#",
+    href: "https://www.linkedin.com/company/lifewood-data-technology-ltd./",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M7 10v7M7 7.5v.01M11 17v-4.2c0-1.2.9-2.2 2.1-2.2 1.2 0 2.1 1 2.1 2.2V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -20,7 +20,7 @@ const socials: SocialItem[] = [
   },
   {
     name: "Facebook",
-    href: "#",
+    href: "https://www.facebook.com/LifewoodPH",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
@@ -30,7 +30,7 @@ const socials: SocialItem[] = [
   },
   {
     name: "Instagram",
-    href: "#",
+    href: "https://www.instagram.com/lifewood_official",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="4" y="4" width="16" height="16" rx="5" stroke="currentColor" strokeWidth="2" />
@@ -41,7 +41,7 @@ const socials: SocialItem[] = [
   },
   {
     name: "Youtube",
-    href: "#",
+    href: "https://www.youtube.com/@LifewoodDataTechnology",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="3.5" y="6.5" width="17" height="11" rx="4" stroke="currentColor" strokeWidth="2" />
@@ -85,12 +85,7 @@ const Footer: React.FC = () => {
                 Contact Us
               </a>
 
-              <div className="mt-6 flex flex-wrap gap-x-7 gap-y-2.5 text-[14px] md:text-[16px] text-white/65">
-                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
-                <a href="#" className="hover:text-white transition-colors">Terms and Conditions</a>
-                <a href="#" className="hover:text-white transition-colors">Cookie Settings</a>
-              </div>
+
             </div>
 
             <div className="lg:justify-self-end lg:text-right">
@@ -100,6 +95,8 @@ const Footer: React.FC = () => {
                   <a
                     key={social.name}
                     href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 text-white/90 hover:text-white transition-colors"
                     aria-label={social.name}
                   >
@@ -114,7 +111,7 @@ const Footer: React.FC = () => {
           </div>
 
           <div className="mt-7 pt-5 border-t border-white/12 text-[12px] md:text-[14px] text-white/90 text-left md:text-right">
-            © 2026 Lifewood - All Rights Reserved
+            ï¿½ 2026 Lifewood - All Rights Reserved
           </div>
         </div>
       </motion.div>

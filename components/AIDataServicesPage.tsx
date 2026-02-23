@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { useEffect, useRef } from 'react';
+import './Folder.css';
 
 type OrbitService = {
   label: string;
@@ -136,6 +136,140 @@ const Tag: React.FC<{ label: string; variant?: 'saffron' | 'default' }> = ({ lab
       <span className={`text-[9px] font-black uppercase tracking-[0.25em] ${isSaffron ? 'text-[#046241] dark:text-[#4ade80]' : 'text-[#046241] dark:text-[#4ade80]'}`}>
         {label}
       </span>
+    </div>
+  );
+};
+
+const darkenColor = (hex: string, percent: number) => {
+  let color = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (color.length === 3) {
+    color = color
+      .split('')
+      .map((c) => c + c)
+      .join('');
+  }
+  const num = Number.parseInt(color, 16);
+  let r = (num >> 16) & 0xff;
+  let g = (num >> 8) & 0xff;
+  let b = num & 0xff;
+  r = Math.max(0, Math.min(255, Math.floor(r * (1 - percent))));
+  g = Math.max(0, Math.min(255, Math.floor(g * (1 - percent))));
+  b = Math.max(0, Math.min(255, Math.floor(b * (1 - percent))));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+};
+
+type FolderProps = {
+  color?: string;
+  size?: number;
+  items?: React.ReactNode[];
+  className?: string;
+};
+
+const Folder: React.FC<FolderProps> = ({
+  color = '#5227FF',
+  size = 1,
+  items = [],
+  className = '',
+}) => {
+  const maxItems = 3;
+  const papers = items.slice(0, maxItems);
+  while (papers.length < maxItems) papers.push(null);
+
+  const [open, setOpen] = useState(false);
+  const [paperOffsets, setPaperOffsets] = useState(
+    Array.from({ length: maxItems }, () => ({ x: 0, y: 0 }))
+  );
+
+  const folderBackColor = darkenColor(color, 0.08);
+  const paper1 = darkenColor('#ffffff', 0.1);
+  const paper2 = darkenColor('#ffffff', 0.05);
+  const paper3 = '#ffffff';
+
+  const resetPaperOffsets = () => {
+    setPaperOffsets(Array.from({ length: maxItems }, () => ({ x: 0, y: 0 })));
+  };
+
+  const handleClick = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      if (!next) resetPaperOffsets();
+      return next;
+    });
+  };
+
+  const handlePaperMouseMove = (e: React.MouseEvent<HTMLDivElement>, index: number) => {
+    if (!open) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const offsetX = (e.clientX - centerX) * 0.15;
+    const offsetY = (e.clientY - centerY) * 0.15;
+    setPaperOffsets((prev) => {
+      const next = [...prev];
+      next[index] = { x: offsetX, y: offsetY };
+      return next;
+    });
+  };
+
+  const handlePaperMouseLeave = (_e: React.MouseEvent<HTMLDivElement>, index: number) => {
+    setPaperOffsets((prev) => {
+      const next = [...prev];
+      next[index] = { x: 0, y: 0 };
+      return next;
+    });
+  };
+
+  const folderStyle = {
+    '--folder-color': color,
+    '--folder-back-color': folderBackColor,
+    '--paper-1': paper1,
+    '--paper-2': paper2,
+    '--paper-3': paper3,
+  } as React.CSSProperties;
+
+  const folderClassName = `folder ${open ? 'open' : ''}`.trim();
+  const scaleStyle = { transform: `scale(${size})` };
+
+  return (
+    <div style={scaleStyle} className={className}>
+      <div
+        className={folderClassName}
+        style={folderStyle}
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        aria-label="Toggle folder preview"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+      >
+        <div className="folder__back">
+          {papers.map((item, i) => (
+            <div
+              key={i}
+              className={`paper paper-${i + 1}`}
+              onMouseMove={(e) => handlePaperMouseMove(e, i)}
+              onMouseLeave={(e) => handlePaperMouseLeave(e, i)}
+              style={
+                open
+                  ? {
+                      '--magnet-x': `${paperOffsets[i]?.x ?? 0}px`,
+                      '--magnet-y': `${paperOffsets[i]?.y ?? 0}px`,
+                    } as React.CSSProperties
+                  : undefined
+              }
+            >
+              {item ?? <span className="folder-paper-lines" aria-hidden />}
+            </div>
+          ))}
+          <div className="folder__front" />
+          <div className="folder__front right" />
+        </div>
+      </div>
     </div>
   );
 };
@@ -738,9 +872,16 @@ const AIDataServicesPage: React.FC = () => {
                   whileHover={{ scale: 1.15, boxShadow: "0 20px 40px rgba(255, 179, 71, 0.4)" }}
                   transition={{ y: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }, default: { type: "spring", stiffness: 400, damping: 25 } }}
                 >
-                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-                  </svg>
+                  <Folder
+                    color="#FFFFFF"
+                    size={0.64}
+                    className="drop-shadow-[0_8px_16px_rgba(0,0,0,0.2)]"
+                    items={[
+                      <span key="paper-1" className="folder-paper-lines" aria-hidden />,
+                      <span key="paper-2" className="folder-paper-lines" aria-hidden />,
+                      <span key="paper-3" className="folder-paper-lines" aria-hidden />,
+                    ]}
+                  />
                 </motion.div>
                 <p className="text-[12px] text-white leading-relaxed text-center font-medium">
                   Our scalable processes ensure accuracy and cultural nuance across 30+ languages and regions.
@@ -860,3 +1001,4 @@ const AIDataServicesPage: React.FC = () => {
 };
 
 export default AIDataServicesPage;
+

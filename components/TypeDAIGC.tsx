@@ -369,7 +369,7 @@ type SwapCardItem = {
 
 function ApproachCardSwap({
   cards,
-  delay = 5200,
+  delay = 3600,
   cardDistance = 74,
   verticalDistance = 80,
   skewAmount = 0,
@@ -432,8 +432,8 @@ function ApproachCardSwap({
         setDroppingId(null);
         setPhase("idle");
         isAnimatingRef.current = false;
-      }, 260);
-    }, 900);
+      }, 180);
+    }, 620);
   };
 
   useEffect(() => {
@@ -506,10 +506,10 @@ function ApproachCardSwap({
             }}
             transition={
               isDropping && phase === "drop"
-                ? { duration: 0.9, ease: [0.22, 1, 0.36, 1] }
+                ? { duration: 0.62, ease: [0.22, 1, 0.36, 1] }
                 : {
-                    duration: 0.95,
-                    delay: phase === "promote" ? slotIndex * 0.08 : 0,
+                    duration: 0.68,
+                    delay: phase === "promote" ? slotIndex * 0.05 : 0,
                     ease: [0.22, 1, 0.36, 1],
                   }
             }

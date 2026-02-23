@@ -1,0 +1,148 @@
+.folder {
+  --folder-color: #5227ff;
+  --folder-back-color: #4b23eb;
+  --paper-1: #e5e7eb;
+  --paper-2: #f3f4f6;
+  --paper-3: #ffffff;
+  width: 74px;
+  height: 56px;
+  position: relative;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  perspective: 900px;
+  user-select: none;
+  animation: folder-float 2.8s ease-in-out infinite;
+}
+
+.folder:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.95);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.folder__back {
+  position: absolute;
+  inset: 8px 0 0;
+  border-radius: 9px;
+  background: var(--folder-back-color);
+  overflow: visible;
+  box-shadow:
+    inset 0 -8px 16px rgba(0, 0, 0, 0.14),
+    0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.folder__back::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 8px;
+  width: 28px;
+  height: 10px;
+  border-radius: 6px 6px 0 0;
+  background: var(--folder-back-color);
+}
+
+.folder__front {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 39px;
+  border-radius: 8px;
+  background: var(--folder-color);
+  transform-origin: 50% 100%;
+  transition: transform 0.45s cubic-bezier(0.2, 0.75, 0.2, 1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.folder__front.right {
+  right: -2px;
+  left: auto;
+  width: 10px;
+  opacity: 0.65;
+  border-radius: 0 8px 8px 0;
+}
+
+.paper {
+  --magnet-x: 0px;
+  --magnet-y: 0px;
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  width: 45px;
+  height: 30px;
+  border-radius: 5px;
+  border: 1px solid rgba(17, 24, 39, 0.06);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.13);
+  transform: translate(-50%, 0) translate(var(--magnet-x), var(--magnet-y));
+  transition: transform 0.36s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+
+.paper-1 {
+  background: var(--paper-1);
+  z-index: 1;
+}
+
+.paper-2 {
+  background: var(--paper-2);
+  z-index: 2;
+}
+
+.paper-3 {
+  background: var(--paper-3);
+  z-index: 3;
+}
+
+.folder-paper-lines {
+  position: absolute;
+  inset: 0;
+}
+
+.folder-paper-lines::before,
+.folder-paper-lines::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.2);
+}
+
+.folder-paper-lines::before {
+  top: 9px;
+}
+
+.folder-paper-lines::after {
+  top: 16px;
+}
+
+.folder.open {
+  animation-play-state: paused;
+}
+
+.folder.open .folder__front {
+  transform: rotateX(-56deg) translateY(2px);
+}
+
+.folder.open .paper-1 {
+  transform: translate(calc(-74% + var(--magnet-x)), calc(-22px + var(--magnet-y))) rotate(-14deg);
+}
+
+.folder.open .paper-2 {
+  transform: translate(calc(-50% + var(--magnet-x)), calc(-29px + var(--magnet-y))) rotate(-3deg);
+}
+
+.folder.open .paper-3 {
+  transform: translate(calc(-29% + var(--magnet-x)), calc(-20px + var(--magnet-y))) rotate(12deg);
+}
+
+@keyframes folder-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
