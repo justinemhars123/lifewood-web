@@ -361,19 +361,10 @@ function SubtitleText() {
 
 // ─── Data servicing section ───────────────────────────────────────────────
 function DataServicingSection() {
-  const [active, setActive] = useState(0);
-  const [direction, setDirection] = useState<1 | -1>(1);
+  const [desktopActive, setDesktopActive] = useState<number | null>(null);
+  const [mobileActive, setMobileActive] = useState(0);
   const ref = useRef<HTMLElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.15 });
-
-  const goTo = (i: number) => { setDirection(i > active ? 1 : -1); setActive(i); };
-  const slide = BLOCKS[active];
-
-  const cardVariants = {
-    enter: (dir: number) => ({ x: dir * 60, opacity: 0, scale: 0.96, rotateY: dir * 5 }),
-    center: { x: 0, opacity: 1, scale: 1, rotateY: 0 },
-    exit: (dir: number) => ({ x: dir * -60, opacity: 0, scale: 0.96, rotateY: dir * -5 }),
-  };
+  const inView = useInView(ref, { once: true, amount: 0.2 });
 
   return (
     <motion.section
@@ -383,285 +374,237 @@ function DataServicingSection() {
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       aria-label="Type C Vertical LLM Data"
     >
-      {/* Header dots */}
-      <div className="flex items-center gap-4 mb-10">
-        <div className="flex-1 h-px bg-[#046241]/10 dark:bg-white/8" />
-        <div className="flex items-center gap-2">
-          {BLOCKS.map((_, i) => (
-            <motion.button key={i} onClick={() => goTo(i)} className="focus:outline-none" whileTap={{ scale: 0.88 }}>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#0f2318]/45 dark:text-white/45 mb-1">
+            Service Flow
+          </p>
+          <h2 className="text-[20px] md:text-[24px] font-black text-[#0f2318] dark:text-white">
+            Explore Each Stage
+          </h2>
+        </div>
+        <div className="hidden lg:flex items-center gap-2">
+          {BLOCKS.map((block, i) => (
+            <motion.button
+              key={block.num}
+              onMouseEnter={() => setDesktopActive(i)}
+              onFocus={() => setDesktopActive(i)}
+              className="focus:outline-none"
+              whileTap={{ scale: 0.9 }}
+            >
               <motion.div
-                animate={{ width: active === i ? 28 : 6, opacity: active === i ? 1 : 0.28 }}
-                transition={{ type: "spring", stiffness: 320, damping: 26 }}
+                animate={{ width: desktopActive === i ? 30 : 8, opacity: desktopActive === i ? 1 : 0.3 }}
+                transition={{ type: "spring", stiffness: 340, damping: 28 }}
                 className="h-1.5 rounded-full bg-[#046241] dark:bg-[#FFB347]"
               />
             </motion.button>
           ))}
         </div>
-        <div className="flex-1 h-px bg-[#046241]/10 dark:bg-white/8" />
+
+        <div className="hidden md:flex lg:hidden items-center gap-2">
+          {BLOCKS.map((block, i) => (
+            <motion.button
+              key={block.num}
+              onClick={() => setMobileActive(i)}
+              className="focus:outline-none"
+              whileTap={{ scale: 0.9 }}
+            >
+              <motion.div
+                animate={{ width: mobileActive === i ? 30 : 8, opacity: mobileActive === i ? 1 : 0.3 }}
+                transition={{ type: "spring", stiffness: 340, damping: 28 }}
+                className="h-1.5 rounded-full bg-[#046241] dark:bg-[#FFB347]"
+              />
+            </motion.button>
+          ))}
+        </div>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.65fr] gap-4 lg:gap-8 items-stretch">
+      <div className="hidden lg:flex gap-3 h-[560px]" onMouseLeave={() => setDesktopActive(null)}>
+        {BLOCKS.map((block, i) => (
+          <ExpandPanelCard
+            key={block.num}
+            block={block}
+            image={SLIDE_IMAGES[i]}
+            index={i}
+            isActive={i === desktopActive}
+            onActivate={() => setDesktopActive(i)}
+          />
+        ))}
+      </div>
 
-        {/* LEFT */}
-        <div className="flex flex-col">
-          <div style={{ height: 72, overflow: "hidden", marginBottom: 8 }} className="select-none pointer-events-none">
-            <AnimatePresence mode="wait" custom={direction}>
-              <motion.p key={active} custom={direction}
-                initial={{ y: (direction as number) * 28, opacity: 0, filter: "blur(4px)" }}
-                animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-                exit={{ y: (direction as number) * -28, opacity: 0, filter: "blur(4px)" }}
-                transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                className="text-[96px] font-black leading-none tracking-[-0.06em] text-[#046241]/8 dark:text-white/5"
-              >
-                {slide.num}
-              </motion.p>
-            </AnimatePresence>
-          </div>
-
-          <div className="flex flex-col flex-1">
-            {BLOCKS.map((block, i) => (
-              <ContentBlock key={block.num} block={block} isActive={i === active} onClick={() => goTo(i)} />
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 mt-6">
-            <NavButton dir="prev" disabled={active === 0} onClick={() => goTo(Math.max(0, active - 1))} />
-            <NavButton dir="next" disabled={active === BLOCKS.length - 1} onClick={() => goTo(Math.min(BLOCKS.length - 1, active + 1))} />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#1a3326]/35 dark:text-white/28 ml-2">
-              {String(active + 1).padStart(2, "0")} / {String(BLOCKS.length).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-
-        {/* RIGHT */}
-        <div style={{ perspective: 1200 }}>
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={active} custom={direction}
-              variants={cardVariants} initial="enter" animate="center" exit="exit"
-              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-              className="rounded-3xl overflow-hidden relative flex flex-col
-                         bg-white dark:bg-[#0d2018]
-                         shadow-[0_20px_60px_rgba(4,98,65,0.12)] dark:shadow-[0_24px_72px_rgba(0,0,0,0.6)]
-                         border border-[#dde8e2] dark:border-white/8 min-h-[520px]"
-              style={{ transformStyle: "preserve-3d" }}
-            >
-              <CornerBracket pos="tl" /><CornerBracket pos="tr" />
-              <CornerBracket pos="bl" /><CornerBracket pos="br" />
-
-              <div className="absolute top-0 left-8 right-8 h-px rounded-full pointer-events-none z-30
-                              bg-gradient-to-r from-transparent via-[#046241]/25 dark:via-white/25 to-transparent" />
-
-              <div className="flex flex-col flex-1 p-8 pt-10">
-
-                {/* Step header */}
-                <div className="flex items-center justify-between mb-7 relative z-10">
-                  <div className="flex items-center gap-3">
-                    <motion.div
-                      className="w-9 h-9 rounded-full flex items-center justify-center bg-[#046241]/8 dark:bg-white/10 border border-[#046241]/15 dark:border-white/20"
-                      whileInView={{ scale: [0.7, 1.1, 1] }}
-                      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <span className="text-[11px] font-black text-[#0f2318] dark:text-white">{slide.num}</span>
-                    </motion.div>
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#0f2318]/45 dark:text-white/45 mb-0.5">{slide.label}</p>
-                      <p className="text-[15px] font-black text-[#0f2318] dark:text-white leading-tight">{slide.title}</p>
-                    </div>
-                  </div>
-                  <motion.span layout
-                    className="text-[9px] font-black uppercase tracking-[0.18em] px-3 py-1.5 rounded-full
-                               bg-[#046241]/8 dark:bg-white/10 text-[#0f2318]/65 dark:text-white/60 border border-[#046241]/15 dark:border-white/15"
-                  >
-                    {slide.tag}
-                  </motion.span>
-                </div>
-
-                {/* Image panel */}
-                <div className="flex-1 relative rounded-2xl overflow-hidden mb-6
-                               bg-[#f3f7f5] dark:bg-[#071a10] border border-[#dce6e0] dark:border-white/10"
-                  style={{ minHeight: 220 }}
-                >
-                  <div className="absolute inset-0 pointer-events-none opacity-[0.045]"
-                    style={{
-                      backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-                      backgroundSize: "24px 24px",
-                    }}
-                  />
-
-                  <AnimatePresence>
-                    <motion.div key={`glow-${active}`} className="absolute inset-0 pointer-events-none"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      transition={{ duration: 0.9 }}
-                      style={{ background: "radial-gradient(ellipse at 35% 60%, rgba(4,98,65,0.5) 0%, transparent 55%), radial-gradient(ellipse at 72% 30%, rgba(4,98,65,0.2) 0%, transparent 50%)" }}
-                    />
-                  </AnimatePresence>
-
-                  <AnimatePresence mode="wait">
-                    <motion.img key={`img-${active}`} src={SLIDE_IMAGES[active]} alt={slide.title}
-                      initial={{ opacity: 0, scale: 1.04, filter: "blur(6px)" }}
-                      animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                      exit={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
-                      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 10 }}
-                    />
-                  </AnimatePresence>
-
-                  <div aria-hidden
-                    className="absolute bottom-0 right-3 select-none pointer-events-none
-                               text-[100px] font-black leading-none text-[#0f2318]/[0.04] dark:text-white/[0.03] tracking-[-0.06em] z-20"
-                  >
-                    {slide.num}
-                  </div>
-                </div>
-
-                {/* Body */}
-                <AnimatePresence mode="wait">
-                  <motion.p key={`body-${active}`}
-                    initial={{ opacity: 0, y: 8, filter: "blur(3px)" }}
-                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.38, delay: 0.08 }}
-                    className="text-[13px] text-[#0f2318]/70 dark:text-white/65 leading-relaxed mb-5"
-                  >
-                    {slide.body}
-                  </motion.p>
-                </AnimatePresence>
-
-                {/* Feature chips */}
-                <AnimatePresence mode="wait">
-                  <motion.div key={`chips-${active}`} className="flex flex-wrap gap-2">
-                    {slide.features.map((f, i) => (
-                      <motion.span key={f}
-                        initial={{ opacity: 0, scale: 0.82, y: 6 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.88 }}
-                        transition={{ delay: 0.14 + i * 0.07, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold
-                                   bg-[#046241]/8 dark:bg-white/10 text-[#0f2318]/80 dark:text-white/80 border border-[#046241]/15 dark:border-white/15"
-                      >
-                        <motion.span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-[#046241]/45 dark:bg-white/55"
-                          animate={{ scale: [1, 1.4, 1] }}
-                          transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                        />
-                        {f}
-                      </motion.span>
-                    ))}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
+      <div className="grid grid-cols-1 gap-3 lg:hidden">
+        {BLOCKS.map((block, i) => (
+          <MobilePanelCard
+            key={block.num}
+            block={block}
+            image={SLIDE_IMAGES[i]}
+            index={i}
+            isActive={i === mobileActive}
+            onActivate={() => setMobileActive(i)}
+          />
+        ))}
       </div>
     </motion.section>
   );
 }
 
-// ─── Nav button ───────────────────────────────────────────────────────────
-function NavButton({ dir, disabled, onClick }: { dir: "prev" | "next"; disabled: boolean; onClick: () => void }) {
-  return (
-    <motion.button onClick={onClick} disabled={disabled}
-      className="flex items-center justify-center w-9 h-9 rounded-full
-                 border border-[#046241]/20 dark:border-white/10
-                 hover:border-[#046241]/50 dark:hover:border-white/25
-                 hover:bg-[#046241]/8 dark:hover:bg-white/6
-                 disabled:opacity-20 focus:outline-none"
-      whileHover={disabled ? {} : { scale: 1.1 }} whileTap={disabled ? {} : { scale: 0.9 }}
-      transition={{ type: "spring", stiffness: 400, damping: 20 }}
-    >
-      <svg className="w-4 h-4 text-[#046241]/60 dark:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        {dir === "prev"
-          ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-          : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />}
-      </svg>
-    </motion.button>
-  );
-}
+type ExpandPanelCardProps = {
+  block: (typeof BLOCKS)[number];
+  image: string;
+  index: number;
+  isActive: boolean;
+  onActivate: () => void;
+};
 
-// ─── Content block ────────────────────────────────────────────────────────
-type ContentBlockProps = { block: (typeof BLOCKS)[number]; isActive: boolean; onClick: () => void };
-
-const ContentBlock: React.FC<ContentBlockProps> = ({ block, isActive, onClick }) => {
+const ExpandPanelCard: React.FC<ExpandPanelCardProps> = ({ block, image, index, isActive, onActivate }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
     <motion.button
-      className="w-full text-left bg-transparent border-0 p-0 relative overflow-hidden focus:outline-none"
-      onClick={onClick}
+      type="button"
+      onMouseEnter={onActivate}
+      onFocus={onActivate}
+      onClick={onActivate}
       onHoverStart={() => setHovered(true)}
       onHoverEnd={() => setHovered(false)}
+      animate={{
+        flexGrow: isActive ? 4.8 : 1,
+        filter: isActive ? "saturate(1)" : hovered ? "saturate(0.9)" : "saturate(0.72)",
+        y: hovered || isActive ? -4 : 0,
+      }}
+      transition={{ type: "spring", stiffness: 180, damping: 28, mass: 0.9 }}
+      className="relative h-full min-w-[88px] flex-[1_1_0%] rounded-2xl overflow-hidden text-left
+                 border border-[#dce6e0] dark:border-transparent
+                 shadow-[0_16px_42px_rgba(4,98,65,0.13)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.55)]"
+      aria-expanded={isActive}
+      style={{ willChange: "transform, filter, flex-grow" }}
+    >
+      <motion.div
+        className="absolute inset-0"
+        animate={{ y: [0, -7, 0] }}
+        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.28 }}
+      >
+        <motion.img
+          src={image}
+          alt={block.title}
+          animate={{ scale: isActive ? 1.05 : hovered ? 1.02 : 1 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <motion.div
+          animate={{ opacity: isActive ? 1 : hovered ? 0.92 : 0.82 }}
+          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10"
+        />
+
+        <AnimatePresence mode="wait" initial={false}>
+          {isActive ? (
+            <motion.div
+              key="expanded"
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-x-0 bottom-0 p-6"
+            >
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/70 mb-1">
+                {block.label}
+              </p>
+              <h3 className="text-[34px] leading-none font-black text-white tracking-[-0.03em] mb-2">
+                {block.num} {block.title}
+              </h3>
+              <p className="text-[13px] leading-relaxed text-white/80 max-w-[90%] mb-4">
+                {block.body}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {block.features.slice(0, 3).map((feature) => (
+                  <span
+                    key={feature}
+                    className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold
+                               bg-white/10 border border-white/20 text-white/90 backdrop-blur-sm"
+                  >
+                    {feature}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="collapsed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-0 p-4 flex flex-col items-center justify-between"
+            >
+              <span className="mt-1 text-[16px] font-extrabold uppercase tracking-[0.14em] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+                {block.title}
+              </span>
+              <span className="text-[54px] font-black leading-none tracking-[-0.06em] text-white">
+                {block.num}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.button>
+  );
+};
+
+type MobilePanelCardProps = {
+  block: (typeof BLOCKS)[number];
+  image: string;
+  index: number;
+  isActive: boolean;
+  onActivate: () => void;
+};
+
+const MobilePanelCard: React.FC<MobilePanelCardProps> = ({ block, image, index, isActive, onActivate }) => {
+  return (
+    <motion.button
+      type="button"
+      onClick={onActivate}
+      className="relative w-full rounded-2xl overflow-hidden text-left
+                 border border-[#dce6e0] dark:border-transparent"
+      animate={{ height: isActive ? 286 : 132 }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
       aria-expanded={isActive}
     >
-      <motion.div animate={{ opacity: hovered && !isActive ? 1 : 0 }} transition={{ duration: 0.18 }}
-        className="absolute inset-0 pointer-events-none rounded-lg bg-gradient-to-r from-[#046241]/5 to-transparent"
-      />
-
-      {isActive && (
-        <motion.div aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-lg"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(4,98,65,0.04), transparent)" }}
-          animate={{ x: ["-100%", "200%"] }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut", repeatDelay: 1.2 }}
-        />
-      )}
-
       <motion.div
-        animate={{ scaleY: isActive ? 1 : 0, opacity: isActive ? 1 : 0 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute left-0 top-5 bottom-5 w-[3px] rounded-r-full
-                   bg-gradient-to-b from-[#046241] to-[#046241]/30
-                   dark:from-[#FFB347] dark:to-[#FFB347]/30"
-        style={{ transformOrigin: "top" }}
-      />
-
-      <motion.div
-        animate={{ x: isActive ? 14 : hovered ? 6 : 0 }}
-        transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        className="py-5"
+        className="absolute inset-0"
+        animate={{ y: [0, -4, 0] }}
+        transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut", delay: index * 0.22 }}
       >
-        <div className="flex items-start gap-4">
-          <motion.span
-            animate={{ opacity: isActive ? 1 : hovered ? 0.45 : 0.15 }}
-            transition={{ duration: 0.22 }}
-            className="text-[38px] font-black leading-none tracking-[-0.04em] flex-shrink-0 mt-0.5
-                       text-[#046241] dark:text-[#FFB347]"
-            style={{ minWidth: "2ch" }}
-          >
-            {block.num}
-          </motion.span>
+        <img src={image} alt={block.title} className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-[15px] font-black text-[#0f2318] dark:text-white tracking-tight">{block.title}</h3>
-              <AnimatePresence>
-                {isActive && (
-                  <motion.span
-                    initial={{ opacity: 0, scale: 0.75, x: -4 }}
-                    animate={{ opacity: 1, scale: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.75, x: -4 }}
-                    transition={{ duration: 0.22 }}
-                    className="text-[8px] font-black uppercase tracking-[0.16em] px-2 py-0.5 rounded-full
-                               bg-[#046241]/10 dark:bg-[#FFB347]/10
-                               text-[#046241] dark:text-[#FFB347]
-                               border border-[#046241]/15 dark:border-[#FFB347]/20"
-                  >
-                    {block.tag}
-                  </motion.span>
-                )}
-              </AnimatePresence>
+        <div className="relative h-full p-4 flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">{block.label}</p>
+              <h3 className="text-[22px] font-black leading-none text-white">{block.num} {block.title}</h3>
             </div>
-
-            <motion.div
-              animate={{ scaleX: isActive || hovered ? 1 : 0 }}
-              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-              className="h-[1.5px] w-10 rounded-full mb-2 bg-[#046241] dark:bg-[#FFB347]"
-              style={{ transformOrigin: "left" }}
-            />
+            <span className="text-[34px] font-black leading-none text-white tracking-[-0.05em]">{block.num}</span>
           </div>
+
+          <AnimatePresence>
+            {isActive && (
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.24 }}
+                className="text-[13px] leading-relaxed text-white/85"
+              >
+                {block.body}
+              </motion.p>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </motion.button>
   );
 };
+
+
+
