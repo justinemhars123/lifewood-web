@@ -85,7 +85,6 @@ const Footer: React.FC = () => {
                 Contact Us
               </a>
 
-
             </div>
 
             <div className="lg:justify-self-end lg:text-right">
