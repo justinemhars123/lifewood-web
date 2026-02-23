@@ -9,9 +9,9 @@ import {
   useVelocity,
   useInView,
   useReducedMotion,
-  animate,
   MotionValue,
 } from "framer-motion";
+import BounceCards from "./BounceCards";
 
 // ─── Images ────────────────────────────────────────────────────────────────
 const collageImages = [
@@ -20,18 +20,21 @@ const collageImages = [
   "https://framerusercontent.com/images/2uF9Ksrf98DxfWsjGrIvBbyRWs.jpeg?scale-down-to=512&width=1456&height=816",
 ];
 
-const workflowImages = {
-  timeline:
-    "https://framerusercontent.com/images/8USU1OFCcARiIIvcdJBJlzA8EA4.jpg?scale-down-to=512&width=5184&height=3456",
-  story:
-    "https://framerusercontent.com/images/3CdZeNunHzqH9P7TcEFjG2Imb4.jpg?scale-down-to=1024&width=4000&height=6000",
-  edit:
-    "https://framerusercontent.com/images/pW4xMuxSlAXuophJZT96Q4LO0.jpeg?scale-down-to=512&width=800&height=386",
-  market:
-    "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1400&q=80",
-  audio:
-    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80",
-};
+const workflowBounceImages = [
+  "https://framerusercontent.com/images/8USU1OFCcARiIIvcdJBJlzA8EA4.jpg?scale-down-to=512&width=5184&height=3456",
+  "https://framerusercontent.com/images/3CdZeNunHzqH9P7TcEFjG2Imb4.jpg?scale-down-to=1024&width=4000&height=6000",
+  "https://framerusercontent.com/images/pW4xMuxSlAXuophJZT96Q4LO0.jpeg?scale-down-to=512&width=800&height=386",
+  "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1400&q=80",
+  "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80",
+];
+
+const workflowBounceTransforms = [
+  "rotate(5deg) translate(-150px)",
+  "rotate(0deg) translate(-70px)",
+  "rotate(-5deg)",
+  "rotate(5deg) translate(70px)",
+  "rotate(-5deg) translate(150px)",
+];
 
 // ─── Word-mask reveal ───────────────────────────────────────────────────────
 function SplitReveal({
@@ -76,26 +79,6 @@ function SplitReveal({
 }
 
 // ─── Animated counter ──────────────────────────────────────────────────────
-function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.9 });
-  const motionVal = useMotionValue(0);
-
-  useEffect(() => {
-    if (!inView) return;
-    const controls = animate(motionVal, value, {
-      duration: 1.6,
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => {
-        if (ref.current) ref.current.textContent = Math.floor(v) + suffix;
-      },
-    });
-    return controls.stop;
-  }, [inView, value, suffix, motionVal]);
-
-  return <span ref={ref}>0{suffix}</span>;
-}
-
 // ─── Magnetic button ───────────────────────────────────────────────────────
 function MagneticButton({
   children,
@@ -692,65 +675,18 @@ export default function TypeDAIGC() {
             </p>
           </div>
 
-          <div>
-            <div className="grid grid-cols-3 gap-3 mb-3">
-              <MediaCard src={workflowImages.timeline} alt="Editing timeline" delay={0.06} />
-              <MediaCard src={workflowImages.story} alt="Creative storyboard" delay={0.14} />
-              <MediaCard src={workflowImages.edit} alt="Video post production" delay={0.22} />
-            </div>
-
-            <div className="grid grid-cols-[1.34fr_0.8fr_0.28fr] gap-3 items-stretch">
-              <TiltCard
-                delay={0.1}
-                scale={1.015}
-                className="relative rounded-lg overflow-hidden h-[220px] md:h-[320px] lg:h-[420px] border border-[#046241]/10 dark:border-white/10"
-              >
-                <img src={workflowImages.market} alt="Global audience collaboration" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                <div className="absolute left-4 right-4 bottom-4 grid grid-cols-[0.9fr_1.6fr] gap-4 items-end">
-                  <p className="text-white text-[11px] md:text-[13px] leading-tight font-medium">
-                    We can quickly adjust
-                  </p>
-                  <p className="text-white text-[15px] md:text-[22px] leading-[1.12] font-medium">
-                    the culture and language of your video to suit different world markets.
-                  </p>
-                </div>
-              </TiltCard>
-
-              <TiltCard
-                delay={0.18}
-                scale={1.015}
-                className="relative rounded-lg overflow-hidden h-[220px] md:h-[320px] lg:h-[420px] border border-[#046241]/10 dark:border-white/10"
-              >
-                <img src={workflowImages.audio} alt="Audio recording for multilingual voiceover" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/35" />
-                <p className="absolute left-4 bottom-4 text-white text-[11px] md:text-[13px] leading-tight font-semibold">
-                  Multiple
-                  <br />
-                  Languages
-                </p>
-              </TiltCard>
-
-              {/* Counter card */}
-              <TiltCard
-                delay={0.26}
-                scale={1.02}
-                className="flex items-center justify-center h-[220px] md:h-[320px] lg:h-[420px]"
-              >
-                <motion.div
-                  className="rounded-lg bg-white dark:bg-[#0d2018] border border-[#046241]/12 dark:border-white/10 w-full h-[96px] md:h-[140px] flex items-center justify-center shadow-[0_8px_24px_rgba(4,98,65,0.12)]"
-                  whileInView="show"
-                  viewport={{ once: true, amount: 0.9 }}
-                >
-                  <div className="text-center text-[#046241] dark:text-[#FFB347]">
-                    <p className="text-[30px] md:text-[40px] font-black leading-none">
-                      <AnimatedCounter value={100} suffix="+" />
-                    </p>
-                    <p className="text-[10px] md:text-[11px] opacity-75">Countries</p>
-                  </div>
-                </motion.div>
-              </TiltCard>
-            </div>
+          <div className="flex items-center justify-center min-h-[260px] md:min-h-[360px] lg:min-h-[440px] overflow-visible">
+            <BounceCards
+              className="custom-bounceCards"
+              images={workflowBounceImages}
+              containerWidth="min(100%, 560px)"
+              containerHeight="min(65vw, 420px)"
+              animationDelay={1}
+              animationStagger={0.08}
+              easeType="elastic.out(1, 0.5)"
+              transformStyles={workflowBounceTransforms}
+              enableHover
+            />
           </div>
         </motion.section>
 
@@ -794,20 +730,3 @@ export default function TypeDAIGC() {
 }
 
 // ─── MediaCard ────────────────────────────────────────────────────────────
-function MediaCard({ src, alt, delay = 0 }: { src: string; alt: string; delay?: number }) {
-  return (
-    <TiltCard
-      delay={delay}
-      scale={1.03}
-      className="rounded-lg overflow-hidden h-[110px] md:h-[165px] lg:h-[250px] border border-[#046241]/10 dark:border-white/10 shadow-[0_6px_22px_rgba(4,98,65,0.1)] dark:shadow-none"
-    >
-      <motion.img
-        src={src}
-        alt={alt}
-        className="w-full h-full object-cover"
-        whileHover={{ scale: 1.08 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      />
-    </TiltCard>
-  );
-}
