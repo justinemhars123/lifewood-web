@@ -1,0 +1,34 @@
+.bounce-cards-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  max-width: 100%;
+}
+
+.bounce-card {
+  position: absolute;
+  width: min(200px, 34vw);
+  aspect-ratio: 1;
+  border: 4px solid #ffffff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22);
+  will-change: transform;
+  cursor: pointer;
+}
+
+.bounce-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .bounce-card {
+    width: min(150px, 32vw);
+    border-width: 3px;
+    border-radius: 16px;
+  }
+}

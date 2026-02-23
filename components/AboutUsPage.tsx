@@ -177,7 +177,7 @@ const LifeAtLifewoodCards: React.FC = () => {
           className="relative overflow-hidden flex items-center justify-center pt-4"
         >
           <div
-            className="absolute inset-0 rounded-[30px] opacity-60"
+            className="absolute inset-0 rounded-[28px] opacity-60"
             style={{
               background: i % 2 === 0
                 ? 'linear-gradient(210deg, rgba(74,222,128,0.25), rgba(4,98,65,0.08))'
@@ -205,9 +205,9 @@ const LifeAtLifewoodCards: React.FC = () => {
               src={card.src}
               alt={card.alt}
               draggable={false}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="w-full h-full object-cover rounded-[28px] transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 dark:from-[#001b11]/86 dark:via-transparent dark:to-[#001b11]/28" />
+            <div className="absolute inset-0 rounded-[28px] bg-gradient-to-t from-black/70 via-transparent to-black/20 dark:from-[#001b11]/86 dark:via-transparent dark:to-[#001b11]/28" />
             <div className="absolute top-4 left-4">
               <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-black/35 dark:bg-black/35 border border-white/20 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347]" />
@@ -248,6 +248,7 @@ const MissionVisionBlock: React.FC = () => {
 
   const d = MV_DATA[active];
   const activeIdx = TABS.indexOf(active);
+  const isVision = active === 'vision';
 
   return (
     <section aria-label="Mission and Vision" className="w-full">
@@ -295,14 +296,19 @@ const MissionVisionBlock: React.FC = () => {
             className="grid grid-cols-1 md:grid-cols-2 items-stretch"
           >
             {/* Image */}
-            <div className="relative overflow-hidden order-2 md:order-1 min-h-[260px] md:min-h-[420px]">
+            <div className={`relative overflow-hidden min-h-[260px] md:min-h-[420px] ${isVision ? 'order-2 md:order-2' : 'order-2 md:order-1'}`}>
               <motion.img key={`img-${active}`} src={d.img} alt={d.imgAlt}
                 className="w-full h-full object-cover absolute inset-0"
                 initial={{ scale: 1.06, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 1.04, opacity: 0 }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#061410]/70 via-transparent to-transparent
-                              md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-[#0d2018]/25" />
+              <div
+                className={
+                  isVision
+                    ? "absolute inset-0 bg-gradient-to-t from-[#061410]/70 via-transparent to-transparent md:bg-gradient-to-r md:from-[#0d2018]/25 md:via-transparent md:to-transparent"
+                    : "absolute inset-0 bg-gradient-to-t from-[#061410]/70 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-[#0d2018]/25"
+                }
+              />
               <div className="absolute top-5 left-5">
                 <div className="inline-flex items-center gap-2 bg-black/30 backdrop-blur-lg border border-white/20 px-3 py-1.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347] animate-pulse" />
@@ -312,7 +318,7 @@ const MissionVisionBlock: React.FC = () => {
             </div>
 
             {/* Text */}
-            <div className="order-1 md:order-2 flex flex-col justify-center p-8 md:p-12 lg:p-14">
+            <div className={`order-1 flex flex-col justify-center p-8 md:p-12 lg:p-14 ${isVision ? 'md:order-1' : 'md:order-2'}`}>
               <motion.h3 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.45 }}
                 className="text-3xl md:text-4xl font-black tracking-[-0.03em] mb-4 text-[#0f2318] dark:text-white">
                 {d.heading}
