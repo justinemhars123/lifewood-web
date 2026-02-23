@@ -1,0 +1,2 @@
+import{t as e}from"./rolldown-runtime.xAnEmbNt.mjs";function t(e,t){return{description:`Lifewood – Empowering communities through ethical data, AI innovation, and sustainable impact worldwide.`,favicon:`https://framerusercontent.com/assets/mmBfl11ZRTsDKI8lhNBYvZHIEMo.png`,robots:`max-image-preview:large`,socialImage:`https://framerusercontent.com/assets/b5eiibqCuZ7XfpwlDF8xdIBEg.png`,title:`Lifewood Data Technology`}}var n=e((()=>{}));export{t as n,n as t};
+//# sourceMappingURL=shared-lib.Dpyv8wFX.mjs.map

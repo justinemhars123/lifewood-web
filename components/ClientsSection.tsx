@@ -46,12 +46,12 @@ const ClientsSection: React.FC = () => {
           {marqueeLogos.map((client, idx) => (
             <div 
               key={`${client.name}-${idx}`} 
-              className="flex-shrink-0 flex items-center justify-center grayscale hover:grayscale-0 transition-all duration-700 opacity-40 hover:opacity-100 px-4"
+              className="group flex-shrink-0 flex items-center justify-center grayscale hover:grayscale-0 dark:grayscale-0 transition-all duration-700 opacity-40 hover:opacity-100 dark:opacity-80 dark:hover:opacity-100 px-4"
             >
               <img 
                 src={client.logo} 
                 alt={client.name} 
-                className={`object-contain h-16 md:h-20 ${client.isWide ? 'w-auto' : 'max-w-[150px]'} dark:invert dark:brightness-200`}
+                className={`object-contain h-16 md:h-20 bg-transparent transition-all duration-700 ${client.isWide ? 'w-auto' : 'max-w-[150px]'} dark:[filter:brightness(0)_invert(1)] dark:group-hover:[filter:none]`}
               />
             </div>
           ))}

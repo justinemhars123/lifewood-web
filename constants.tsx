@@ -69,12 +69,13 @@ export const SERVICES: Service[] = [
 ];
 
 export const CLIENTS = [
-  { name: 'BYU Pathway Worldwide', logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQg46mEq7tyQd4VqaW3pLN76R5GmsLbnEoiYQ&s', isWide: true },
-  { name: 'Ancestry', logo: 'https://i.pcmag.com/imagery/reviews/02YLLi86lwlZfi7PhKu6SMK-3..v1569474766.png', isWide: true },
+  { name: 'BYU Pathway Worldwide', logo: 'https://byu-pathway.brightspotcdn.com/00/3e/51ab46cd4ad4ba1359cd453f28ac/byu-logo-black.svg', isWide: true },
+  { name: 'Ancestry', logo: 'https://handwiki.org/wiki/images/b/b0/Ancestry_logo_2016.svg', isWide: true },
   { name: 'Microsoft', logo: 'https://upload.wikimedia.org/wikipedia/commons/9/96/Microsoft_logo_%282012%29.svg', isWide: false },
-  { name: 'Amazon', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', isWide: false },
-  { name: 'Tencent', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/22/Tencent_Logo.svg', isWide: false },
-  { name: 'Alibaba', logo: 'https://upload.wikimedia.org/wikipedia/en/8/80/Alibaba-Group-Logo.svg', isWide: false },
+  { name: 'FamilySearch', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7e/Text_Logo_of_FamilySearch_2013.svg', isWide: true },
+  { name: 'Apple', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg', isWide: false },
+  { name: 'Google', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg', isWide: true },
+  { name: 'Gordon and Betty Moore Foundation', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Gordon_and_Betty_Moore_Foundation_logo.svg', isWide: true },
 ];
 
 export const STATS: Stat[] = [

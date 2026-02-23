@@ -20,6 +20,7 @@ import DashboardPage from './components/DashboardPage';
 import AboutSection from './components/AboutSection';
 import AboutUsPage from './components/AboutUsPage';
 import OfficesPage from './components/OfficesPage';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import FAQSection from './components/FAQSection';
 import CTASection from './components/CTASection';
 import Footer from './components/Footer';
@@ -29,6 +30,7 @@ import { isAuthenticated } from './auth';
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname.replace(/\/+$/, ''));
   const authed = isAuthenticated();
+  const isPrivacyRoute = currentPath === '/privacy-policy' || currentPath === '/privacypolicy';
   const hideChrome = currentPath === '/login' || currentPath === '/login2';
 
   useEffect(() => {
@@ -101,6 +103,10 @@ function App() {
           <main>
             <AboutUsPage />
           </main>
+        ) : isPrivacyRoute ? (
+          <main>
+            <PrivacyPolicyPage />
+          </main>
         ) : currentPath === '/offices' ? (
           <main>
             <OfficesPage />
@@ -117,7 +123,7 @@ function App() {
             <CTASection />
           </main>
         )}
-        {!hideChrome && <Footer />}
+        {!hideChrome && !isPrivacyRoute && <Footer />}
       </motion.div>
     </AnimatePresence>
   );

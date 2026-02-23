@@ -1,4 +1,4 @@
-import React from "react";
+ï»¿import React from "react";
 import { motion } from "framer-motion";
 
 type SocialItem = {
@@ -85,12 +85,7 @@ const Footer: React.FC = () => {
                 Contact Us
               </a>
 
-              <div className="mt-6 flex flex-wrap gap-x-7 gap-y-2.5 text-[14px] md:text-[16px] text-white/65">
-                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
-                <a href="#" className="hover:text-white transition-colors">Terms and Conditions</a>
-                <a href="#" className="hover:text-white transition-colors">Cookie Settings</a>
-              </div>
+
             </div>
 
             <div className="lg:justify-self-end lg:text-right">
@@ -114,7 +109,7 @@ const Footer: React.FC = () => {
           </div>
 
           <div className="mt-7 pt-5 border-t border-white/12 text-[12px] md:text-[14px] text-white/90 text-left md:text-right">
-            © 2026 Lifewood - All Rights Reserved
+            (c) 2026 Lifewood - All Rights Reserved
           </div>
         </div>
       </motion.div>
