@@ -5,6 +5,7 @@ export const AUTH_STORAGE_KEY = "lifewood_auth_user";
 export const AUTH_EVENT_NAME = "lifewood-auth-changed";
 export const SUPER_ADMIN_EMAIL = "admin@gmail.com";
 const AUTH_PENDING_PROFILE_SYNC_KEY = "lifewood_pending_profile_sync";
+const AUTH_INLINE_AVATAR_CACHE_KEY = "lifewood_inline_avatar_cache";
 const SUPER_ADMIN_PASSWORD = "admin123";
 const SUPER_ADMIN_NAME = "Super Admin";
 
@@ -65,11 +66,67 @@ function readStoredAuthUser(): AuthUser | null {
   }
 }
 
+function normalizeEmail(email?: string): string {
+  return (email || "").trim().toLowerCase();
+}
+
+function readInlineAvatarCache(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const raw = window.localStorage.getItem(AUTH_INLINE_AVATAR_CACHE_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeInlineAvatarCache(cache: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  const entries = Object.entries(cache).filter(
+    ([email, avatar]) => Boolean(normalizeEmail(email)) && isInlineDataUrl(avatar)
+  );
+  if (entries.length === 0) {
+    window.localStorage.removeItem(AUTH_INLINE_AVATAR_CACHE_KEY);
+    return;
+  }
+  window.localStorage.setItem(AUTH_INLINE_AVATAR_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+}
+
+function readCachedInlineAvatar(email?: string): string {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return "";
+  const value = readInlineAvatarCache()[normalizedEmail];
+  return isInlineDataUrl(value) ? value : "";
+}
+
+function syncInlineAvatarCache(email?: string, avatarUrl?: string) {
+  if (typeof window === "undefined") return;
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) return;
+
+  const cache = readInlineAvatarCache();
+  const normalizedAvatar = (avatarUrl || "").trim();
+  if (isInlineDataUrl(normalizedAvatar)) {
+    cache[normalizedEmail] = normalizedAvatar;
+  } else {
+    delete cache[normalizedEmail];
+  }
+  writeInlineAvatarCache(cache);
+}
+
 function writeStoredAuthUser(user: AuthUser | null) {
   if (typeof window === "undefined") return;
   if (!user) {
+    const current = readStoredAuthUser();
+    if (current?.email) {
+      syncInlineAvatarCache(current.email, undefined);
+    }
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
   } else {
+    syncInlineAvatarCache(user.email, user.avatarUrl);
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
   }
 }
@@ -123,6 +180,7 @@ function applyPendingProfilePayload(
 ): AuthUser {
   const metadata = payload.data || {};
   const nextEmail = (payload.email || user.email || "").trim().toLowerCase() || user.email;
+  const cachedAvatar = readCachedInlineAvatar(nextEmail || user.email);
   const nextFirstName =
     typeof metadata.firstName === "string" ? metadata.firstName : user.firstName || "";
   const nextLastName =
@@ -146,7 +204,7 @@ function applyPendingProfilePayload(
     avatarUrl:
       typeof metadata.avatarUrl === "string" && metadata.avatarUrl.trim()
         ? metadata.avatarUrl
-        : user.avatarUrl,
+        : user.avatarUrl || cachedAvatar || undefined,
   };
 }
 
@@ -213,7 +271,8 @@ function mapSupabaseUserToAuthUser(user: User, previous?: AuthUser | null): Auth
 
   const metadataAvatar =
     typeof metadata.avatarUrl === "string" ? metadata.avatarUrl.trim() : "";
-  const previousAvatar = previous?.avatarUrl?.trim() || "";
+  const cachedAvatar = readCachedInlineAvatar(email);
+  const previousAvatar = previous?.avatarUrl?.trim() || cachedAvatar;
   const resolvedAvatar =
     isInlineDataUrl(previousAvatar) && metadataAvatar && !isInlineDataUrl(metadataAvatar)
       ? previousAvatar
@@ -267,7 +326,7 @@ function mergeUserRowIntoAuthUser(current: AuthUser, row: UserProfileRow): AuthU
   const lastName = row.last_name?.trim() || current.lastName || "";
   const fallbackName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const rowAvatar = row.avatar_url?.trim() || "";
-  const currentAvatar = current.avatarUrl?.trim() || "";
+  const currentAvatar = current.avatarUrl?.trim() || readCachedInlineAvatar(current.email);
   const keepCurrentAvatar =
     !rowAvatar ||
     (currentAvatar && isInlineDataUrl(currentAvatar) && rowAvatar !== currentAvatar);
@@ -329,11 +388,14 @@ function persistSupabaseUser(user: User | null): AuthUser | null {
   const normalized = mapSupabaseUserToAuthUser(user, current);
   const pending = readPendingProfileSyncPayload();
   const merged = pending ? applyPendingProfilePayload(normalized, pending) : normalized;
-  writeStoredAuthUser(merged);
+  const cachedAvatar = readCachedInlineAvatar(merged.email);
+  const stableMerged =
+    !merged.avatarUrl && cachedAvatar ? { ...merged, avatarUrl: cachedAvatar } : merged;
+  writeStoredAuthUser(stableMerged);
   notifyAuthChanged();
-  void upsertUserRow(user, merged);
-  void hydrateCurrentUserFromUsersTable(user, merged);
-  return merged;
+  void upsertUserRow(user, stableMerged);
+  void hydrateCurrentUserFromUsersTable(user, stableMerged);
+  return stableMerged;
 }
 
 async function flushPendingProfileSync(): Promise<void> {

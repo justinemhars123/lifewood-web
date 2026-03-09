@@ -233,9 +233,13 @@ export default function DashboardPage() {
       const optimized = await toOptimizedAvatarDataUrl(file);
       setAvatarDraft(optimized);
       setProfileSaveError("");
+      if (!isSuperAdmin(user)) {
+        const next = await updateAuthUser({ avatarUrl: optimized });
+        if (next) setUser(next);
+      }
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to process selected image.";
+        error instanceof Error ? error.message : "Failed to save selected image.";
       setProfileSaveError(message);
     } finally {
       if (fileInputRef.current) {

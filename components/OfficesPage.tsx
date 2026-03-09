@@ -105,6 +105,8 @@ const BeAmazedCircle: React.FC = () => {
 const OfficesPage: React.FC = () => {
   const [activeOffice, setActiveOffice] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
+  const [mapOffice, setMapOffice] = useState<(typeof OFFICES)[number] | null>(null);
+  const mapRef = useRef<HTMLDivElement | null>(null);
 
   const resources = useCounter(56788, 1600);
   const countries = useCounter(30, 900);
@@ -117,6 +119,10 @@ const OfficesPage: React.FC = () => {
   };
 
   const office = OFFICES[activeOffice];
+  const viewOnMap = () => {
+    setMapOffice(office);
+    mapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const variants = {
     enter: (dir: number) => ({ x: dir * 40, opacity: 0 }),
@@ -173,10 +179,11 @@ const OfficesPage: React.FC = () => {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4"
+          className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start"
         >
           {/* Map */}
           <div
+            ref={mapRef}
             className="relative rounded-3xl overflow-hidden
                        bg-[#e8f2ec] dark:bg-[#0d2018]
                        border border-[#046241]/10 dark:border-white/8
@@ -198,13 +205,13 @@ const OfficesPage: React.FC = () => {
                   </div>
                 </div>
               }>
-                <OfficeMap offices={OFFICES as any} activeOffice={office as any} />
+                <OfficeMap offices={OFFICES as any} activeOffice={mapOffice as any} />
               </Suspense>
             </ErrorBoundary>
           </div>
 
           {/* ── Stats + Slideshow sidebar ── */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
 
             {/* Online Resources card — EXACT colors from document */}
             <div
@@ -257,7 +264,7 @@ const OfficesPage: React.FC = () => {
                             shadow-[0_4px_20px_rgba(4,98,65,0.07)]">
 
               {/* Slide content */}
-              <div className="relative p-5 overflow-hidden" style={{ minHeight: 200 }}>
+              <div className="relative p-3.5 overflow-hidden">
                 <AnimatePresence mode="wait" custom={direction}>
                   <motion.div
                     key={activeOffice}
@@ -268,63 +275,78 @@ const OfficesPage: React.FC = () => {
                     exit="exit"
                     transition={{ duration: 0.32, ease: [0.4, 0, 0.2, 1] }}
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-2xl">{office.flag}</span>
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <span className="text-xl">{office.flag}</span>
                       <div>
-                        <p className="text-[14px] font-black text-[#0f2318] dark:text-white leading-tight">
+                        <p className="text-[13px] font-black text-[#0f2318] dark:text-white leading-tight">
                           {office.city}
                         </p>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#046241] dark:text-[#4ade80]">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#046241] dark:text-[#4ade80]">
                           {office.country}
                         </p>
                       </div>
-                      <div className="ml-auto w-2 h-2 rounded-full bg-[#FFB347] shadow-[0_0_6px_#FFB347]" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#FFB347] shadow-[0_0_6px_#FFB347]" />
                     </div>
 
-                    <div className="h-px bg-[#046241]/8 dark:bg-white/8 mb-3" />
+                    <div className="h-px bg-[#046241]/8 dark:bg-white/8 mb-1.5" />
 
-                    <div className="space-y-0.5 mb-3">
-                      {office.address.map((l, i) => (
-                        <p key={i} className="text-[12px] text-[#1a3326]/55 dark:text-white/55 leading-relaxed">{l}</p>
+                    <div className="space-y-0 mb-1.5">
+                      {office.address.slice(0, 2).map((l, i) => (
+                        <p key={i} className="text-[10px] text-[#1a3326]/55 dark:text-white/55 leading-[1.45]">{l}</p>
                       ))}
                     </div>
 
                     <a href={`tel:${office.phone}`}
-                      className="flex items-center gap-1.5 mb-1.5 text-[11px] font-medium
+                      className="flex items-center gap-1.5 mb-0.5 text-[10px] font-medium
                                  text-[#1a3326]/50 dark:text-white/45
                                  hover:text-[#046241] dark:hover:text-[#4ade80] transition-colors">
-                      <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+                      <svg className="w-2.5 h-2.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
                         <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 8.81 19.79 19.79 0 0115 .18a2 2 0 012 1.81v3.04a2 2 0 01-1.45 1.95l-1.27.42a16 16 0 006.29 6.29l.42-1.27A2 2 0 0122 16.92z" />
                       </svg>
                       {office.phone}
                     </a>
 
                     <a href={`mailto:${office.email}`}
-                      className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em]
+                      className="flex items-center gap-1.5 mb-1 text-[10px] font-black uppercase tracking-[0.16em]
                                  text-[#046241] dark:text-[#4ade80] hover:opacity-80 transition-opacity">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
                         <polyline points="22,6 12,13 2,6" />
                       </svg>
                       {office.email}
                     </a>
+
+                    <button
+                      type="button"
+                      onClick={viewOnMap}
+                      className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-[#046241]/20 dark:border-white/10
+                                 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em]
+                                 text-[#046241] dark:text-[#4ade80]
+                                 hover:bg-[#046241]/8 dark:hover:bg-[#FFB347]/10 transition-colors focus:outline-none"
+                    >
+                      View on map
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14" />
+                        <path d="m12 5 7 7-7 7" />
+                      </svg>
+                    </button>
                   </motion.div>
                 </AnimatePresence>
               </div>
 
               {/* Nav bar — same arrow style as original dots */}
-              <div className="flex items-center justify-between px-5 py-3
+              <div className="flex items-center justify-between px-3.5 py-2
                               border-t border-[#046241]/8 dark:border-white/8">
                 <button
                   onClick={() => goTo(Math.max(0, activeOffice - 1))}
                   disabled={activeOffice === 0}
-                  className="group flex items-center justify-center w-7 h-7 rounded-full
+                  className="group flex items-center justify-center w-6 h-6 rounded-full
                              border border-[#046241]/20 dark:border-white/10
                              hover:border-[#046241]/50 dark:hover:border-[#FFB347]/40
                              hover:bg-[#046241]/8 dark:hover:bg-[#FFB347]/10
                              disabled:opacity-25 transition-all duration-200 focus:outline-none"
                 >
-                  <svg className="w-3.5 h-3.5 text-[#046241]/60 dark:text-white/50
+                  <svg className="w-3 h-3 text-[#046241]/60 dark:text-white/50
                                   group-hover:text-[#046241] dark:group-hover:text-[#FFB347] transition-colors"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
@@ -346,13 +368,13 @@ const OfficesPage: React.FC = () => {
                 <button
                   onClick={() => goTo(Math.min(OFFICES.length - 1, activeOffice + 1))}
                   disabled={activeOffice === OFFICES.length - 1}
-                  className="group flex items-center justify-center w-7 h-7 rounded-full
+                  className="group flex items-center justify-center w-6 h-6 rounded-full
                              border border-[#046241]/20 dark:border-white/10
                              hover:border-[#046241]/50 dark:hover:border-[#FFB347]/40
                              hover:bg-[#046241]/8 dark:hover:bg-[#FFB347]/10
                              disabled:opacity-25 transition-all duration-200 focus:outline-none"
                 >
-                  <svg className="w-3.5 h-3.5 text-[#046241]/60 dark:text-white/50
+                  <svg className="w-3 h-3 text-[#046241]/60 dark:text-white/50
                                   group-hover:text-[#046241] dark:group-hover:text-[#FFB347] transition-colors"
                     fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />

@@ -3,6 +3,7 @@ import React from 'react'
 type Office = {
   id?: string
   city?: string
+  country?: string
   name?: string
   lat: number
   lng: number
@@ -16,7 +17,28 @@ type OfficeMapProps = {
 
 export default function OfficeMap({ offices = [], activeOffice = null }: OfficeMapProps): JSX.Element {
   void offices
-  void activeOffice
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
+
+  const buildMapSrc = (office: Office | null) => {
+    if (!office) {
+      return 'https://lifewoodworldwidemap.vercel.app/'
+    }
+
+    // Country-level zoom around the selected office location.
+    const latDelta = 8
+    const lngDelta = 12
+    const left = clamp(office.lng - lngDelta, -180, 180)
+    const right = clamp(office.lng + lngDelta, -180, 180)
+    const bottom = clamp(office.lat - latDelta, -85, 85)
+    const top = clamp(office.lat + latDelta, -85, 85)
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${office.lat}%2C${office.lng}`
+  }
+
+  const mapSrc = buildMapSrc(activeOffice)
+  const mapTitle = activeOffice
+    ? `${activeOffice.country || activeOffice.city || activeOffice.name || 'Selected'} map view`
+    : 'Lifewood World Map'
 
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/5 shadow-2xl">
@@ -30,11 +52,12 @@ export default function OfficeMap({ offices = [], activeOffice = null }: OfficeM
         {/* Map iframe */}
         <div className="absolute inset-0">
           <iframe
-            src="https://lifewoodworldwidemap.vercel.app/"
+            key={mapSrc}
+            src={mapSrc}
             loading="lazy"
             referrerPolicy="no-referrer"
             sandbox="allow-same-origin allow-scripts allow-downloads allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-            title="Lifewood World Map"
+            title={mapTitle}
             className="w-full h-full border-0"
             style={{ borderRadius: 0 }}
           />
