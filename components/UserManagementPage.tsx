@@ -35,17 +35,21 @@ type ManagedUser = {
 type UserRow = {
   id: string;
   email: string;
-  full_name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  phone: string | null;
-  school: string | null;
-  avatar_url: string | null;
-  role: string | null;
-  status: string | null;
-  last_seen: string | null;
-  created_at: string | null;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  school?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+  status?: string | null;
+  last_seen?: string | null;
+  created_at?: string | null;
 };
+
+const USER_SELECT_PRIMARY =
+  "id, email, full_name, first_name, last_name, phone, school, avatar_url, role, status, last_seen, created_at";
+const USER_SELECT_LEGACY = "id, email, full_name, role, status, last_seen, created_at";
 
 const ADMIN_NAV_ITEMS = [
   { label: "Dashboard", path: "/admin/dashboard" },
@@ -155,6 +159,20 @@ function getErrorMessage(error: unknown) {
   return "Failed to load users from database.";
 }
 
+function isMissingUsersTableError(message: string) {
+  const text = message.toLowerCase();
+  return (
+    (text.includes("users") && text.includes("does not exist")) ||
+    (text.includes("public.users") && text.includes("not found")) ||
+    (text.includes("could not find") && text.includes("users"))
+  );
+}
+
+function isMissingColumnError(message: string) {
+  const text = message.toLowerCase();
+  return text.includes("column") && text.includes("does not exist");
+}
+
 export default function UserManagementPage() {
   const [user, setUser] = useState<AuthUser | null>(() => getAuthUser());
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/+$/, ""));
@@ -202,10 +220,19 @@ export default function UserManagementPage() {
         console.warn("User sync RPC warning:", syncError.message);
       }
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("users")
-        .select("id, email, full_name, first_name, last_name, phone, school, avatar_url, role, status, last_seen, created_at")
+        .select(USER_SELECT_PRIMARY)
         .order("created_at", { ascending: false });
+
+      if (error && isMissingColumnError(error.message || "")) {
+        const legacyResult = await supabase
+          .from("users")
+          .select(USER_SELECT_LEGACY)
+          .order("created_at", { ascending: false });
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
 
       if (error) throw error;
 
@@ -222,8 +249,10 @@ export default function UserManagementPage() {
       const message = getErrorMessage(error);
       const lowered = message.toLowerCase();
       setLoadError(
-        lowered.includes("users")
+        isMissingUsersTableError(message)
           ? "Could not read the `users` table. Create it first, then reload."
+          : isMissingColumnError(message)
+            ? "Your `users` table is missing newer columns. Run `supabase/users_setup.sql`, then reload."
           : lowered.includes("jwt") || lowered.includes("row-level") || lowered.includes("permission")
             ? "Your admin account is not authenticated in Supabase. Sign in with a Supabase admin account to load users."
             : message

@@ -4,6 +4,7 @@ import { supabase } from "./supabaseClient";
 export const AUTH_STORAGE_KEY = "lifewood_auth_user";
 export const AUTH_EVENT_NAME = "lifewood-auth-changed";
 export const SUPER_ADMIN_EMAIL = "admin@gmail.com";
+const AUTH_PENDING_PROFILE_SYNC_KEY = "lifewood_pending_profile_sync";
 const SUPER_ADMIN_PASSWORD = "admin123";
 const SUPER_ADMIN_NAME = "Super Admin";
 
@@ -26,7 +27,18 @@ type AuthResult = {
   message?: string;
 };
 
+type UserProfileRow = {
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  school?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+};
+
 let hasRegisteredAuthListener = false;
+let hasRegisteredNetworkListener = false;
 
 function getSignUpEmailRedirectTo(): string {
   const configured = (import.meta.env.VITE_SUPABASE_EMAIL_REDIRECT_TO || "").trim();
@@ -64,6 +76,78 @@ function writeStoredAuthUser(user: AuthUser | null) {
 
 function fallbackNameFromEmail(email: string) {
   return email.split("@")[0] || "User";
+}
+
+function isInlineDataUrl(value?: string): boolean {
+  return typeof value === "string" && value.startsWith("data:");
+}
+
+function isNetworkFetchError(message?: string): boolean {
+  const value = (message || "").trim().toLowerCase();
+  return (
+    value.includes("failed to fetch") ||
+    value.includes("networkerror") ||
+    value.includes("network request failed") ||
+    value.includes("err_connection_reset")
+  );
+}
+
+function readPendingProfileSyncPayload():
+  | { email?: string; data?: Record<string, string> }
+  | null {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(AUTH_PENDING_PROFILE_SYNC_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { email?: string; data?: Record<string, string> };
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingProfileSyncPayload(payload: { email?: string; data?: Record<string, string> }) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_PENDING_PROFILE_SYNC_KEY, JSON.stringify(payload));
+}
+
+function clearPendingProfileSyncPayload() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_PENDING_PROFILE_SYNC_KEY);
+}
+
+function applyPendingProfilePayload(
+  user: AuthUser,
+  payload: { email?: string; data?: Record<string, string> }
+): AuthUser {
+  const metadata = payload.data || {};
+  const nextEmail = (payload.email || user.email || "").trim().toLowerCase() || user.email;
+  const nextFirstName =
+    typeof metadata.firstName === "string" ? metadata.firstName : user.firstName || "";
+  const nextLastName =
+    typeof metadata.lastName === "string" ? metadata.lastName : user.lastName || "";
+  const nextDisplayName =
+    typeof metadata.name === "string" && metadata.name.trim()
+      ? metadata.name.trim()
+      : [nextFirstName, nextLastName].filter(Boolean).join(" ").trim() || user.name;
+  const nextRole =
+    typeof metadata.role === "string" ? normalizeRole(metadata.role) : normalizeRole(user.role);
+
+  return {
+    ...user,
+    email: nextEmail,
+    firstName: nextFirstName || undefined,
+    lastName: nextLastName || undefined,
+    name: nextDisplayName,
+    phone: typeof metadata.phone === "string" ? metadata.phone : user.phone,
+    school: typeof metadata.school === "string" ? metadata.school : user.school,
+    role: nextRole,
+    avatarUrl:
+      typeof metadata.avatarUrl === "string" && metadata.avatarUrl.trim()
+        ? metadata.avatarUrl
+        : user.avatarUrl,
+  };
 }
 
 function normalizeRole(role?: string): AuthRole {
@@ -127,6 +211,14 @@ function mapSupabaseUserToAuthUser(user: User, previous?: AuthUser | null): Auth
       ? metadata.name.trim()
       : previous?.name || fallbackNameFromEmail(email);
 
+  const metadataAvatar =
+    typeof metadata.avatarUrl === "string" ? metadata.avatarUrl.trim() : "";
+  const previousAvatar = previous?.avatarUrl?.trim() || "";
+  const resolvedAvatar =
+    isInlineDataUrl(previousAvatar) && metadataAvatar && !isInlineDataUrl(metadataAvatar)
+      ? previousAvatar
+      : metadataAvatar || previousAvatar;
+
   return {
     email,
     name: composedName || fallbackName,
@@ -144,10 +236,7 @@ function mapSupabaseUserToAuthUser(user: User, previous?: AuthUser | null): Auth
       typeof metadata.role === "string"
         ? normalizeRole(metadata.role)
         : normalizeRole(previous?.role),
-    avatarUrl:
-      typeof metadata.avatarUrl === "string"
-        ? metadata.avatarUrl
-        : previous?.avatarUrl || undefined,
+    avatarUrl: resolvedAvatar || undefined,
   };
 }
 
@@ -173,6 +262,61 @@ async function upsertUserRow(user: User, authUser?: AuthUser | null): Promise<vo
   }
 }
 
+function mergeUserRowIntoAuthUser(current: AuthUser, row: UserProfileRow): AuthUser {
+  const firstName = row.first_name?.trim() || current.firstName || "";
+  const lastName = row.last_name?.trim() || current.lastName || "";
+  const fallbackName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const rowAvatar = row.avatar_url?.trim() || "";
+  const currentAvatar = current.avatarUrl?.trim() || "";
+  const keepCurrentAvatar =
+    !rowAvatar ||
+    (currentAvatar && isInlineDataUrl(currentAvatar) && rowAvatar !== currentAvatar);
+  return {
+    ...current,
+    name: row.full_name?.trim() || fallbackName || current.name,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+    phone: row.phone?.trim() || current.phone,
+    school: row.school?.trim() || current.school,
+    avatarUrl: keepCurrentAvatar ? currentAvatar || undefined : rowAvatar,
+    role: row.role ? normalizeRole(row.role) : current.role,
+  };
+}
+
+async function hydrateCurrentUserFromUsersTable(user: User, baseUser?: AuthUser | null): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from("users")
+      .select("full_name, first_name, last_name, phone, school, avatar_url, role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error || !data) return;
+
+    const current = baseUser || readStoredAuthUser();
+    if (!current) return;
+    const merged = mergeUserRowIntoAuthUser(current, data as UserProfileRow);
+    writeStoredAuthUser(merged);
+    notifyAuthChanged();
+  } catch {
+    // Ignore hydration failures; local/auth data remains usable.
+  }
+}
+
+async function syncCurrentUserRowFromLocal(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const local = readStoredAuthUser();
+  if (!local) return;
+
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.user) return;
+    await upsertUserRow(data.session.user, local);
+  } catch {
+    // Ignore transient network failures; sync will retry on next auth or online event.
+  }
+}
+
 function persistSupabaseUser(user: User | null): AuthUser | null {
   if (typeof window === "undefined") return null;
   if (!user) {
@@ -183,10 +327,34 @@ function persistSupabaseUser(user: User | null): AuthUser | null {
 
   const current = readStoredAuthUser();
   const normalized = mapSupabaseUserToAuthUser(user, current);
-  writeStoredAuthUser(normalized);
+  const pending = readPendingProfileSyncPayload();
+  const merged = pending ? applyPendingProfilePayload(normalized, pending) : normalized;
+  writeStoredAuthUser(merged);
   notifyAuthChanged();
-  void upsertUserRow(user, normalized);
-  return normalized;
+  void upsertUserRow(user, merged);
+  void hydrateCurrentUserFromUsersTable(user, merged);
+  return merged;
+}
+
+async function flushPendingProfileSync(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const pending = readPendingProfileSyncPayload();
+  if (!pending || Object.keys(pending).length === 0) return;
+
+  const { data, error } = await supabase.auth.updateUser(pending);
+  if (error) {
+    if (!isNetworkFetchError(error.message)) {
+      console.warn("Failed to flush pending profile sync:", error.message);
+    }
+    return;
+  }
+
+  clearPendingProfileSyncPayload();
+  if (!data.user) return;
+
+  const normalized = persistSupabaseUser(data.user);
+  await upsertUserRow(data.user, normalized);
+  await syncCurrentUserRowFromLocal();
 }
 
 export function ensureAuthSubscription(): void {
@@ -194,7 +362,17 @@ export function ensureAuthSubscription(): void {
   hasRegisteredAuthListener = true;
   supabase.auth.onAuthStateChange((_event, session) => {
     persistSupabaseUser(session?.user ?? null);
+    void flushPendingProfileSync();
+    void syncCurrentUserRowFromLocal();
   });
+
+  if (!hasRegisteredNetworkListener) {
+    hasRegisteredNetworkListener = true;
+    window.addEventListener("online", () => {
+      void flushPendingProfileSync();
+      void syncCurrentUserRowFromLocal();
+    });
+  }
 }
 
 export async function initializeAuth(): Promise<AuthUser | null> {
@@ -205,7 +383,10 @@ export async function initializeAuth(): Promise<AuthUser | null> {
     console.error("Failed to get Supabase session:", error.message);
     return null;
   }
-  return persistSupabaseUser(data.session?.user ?? null);
+  const user = persistSupabaseUser(data.session?.user ?? null);
+  void flushPendingProfileSync();
+  void syncCurrentUserRowFromLocal();
+  return user;
 }
 
 export function getAuthUser(): AuthUser | null {
@@ -336,7 +517,7 @@ export async function signUpWithPassword(
   };
 }
 
-export function updateAuthUser(partial: Partial<AuthUser>): AuthUser | null {
+export async function updateAuthUser(partial: Partial<AuthUser>): Promise<AuthUser | null> {
   if (typeof window === "undefined") return null;
   const current = getAuthUser();
   if (!current) return null;
@@ -347,9 +528,6 @@ export function updateAuthUser(partial: Partial<AuthUser>): AuthUser | null {
     ...partial,
     role: normalizeRole(current.role),
   };
-  writeStoredAuthUser(next);
-  notifyAuthChanged();
-
   const metadata: Record<string, string> = {};
   if (next.name) metadata.name = next.name;
   if (next.firstName) metadata.firstName = next.firstName;
@@ -357,24 +535,55 @@ export function updateAuthUser(partial: Partial<AuthUser>): AuthUser | null {
   if (next.phone) metadata.phone = next.phone;
   if (next.school) metadata.school = next.school;
   if (next.role) metadata.role = normalizeRole(next.role);
-  if (next.avatarUrl) metadata.avatarUrl = next.avatarUrl;
+  // Avoid sending base64 image blobs to auth metadata; this often causes network/request failures.
+  if (next.avatarUrl && !isInlineDataUrl(next.avatarUrl)) metadata.avatarUrl = next.avatarUrl;
 
   const payload: { email?: string; data?: Record<string, string> } = {};
   if (next.email && next.email !== current.email) payload.email = next.email;
   if (Object.keys(metadata).length > 0) payload.data = metadata;
 
   if (Object.keys(payload).length > 0) {
-    void supabase.auth.updateUser(payload).then(({ error }) => {
-      if (error) {
-        console.warn("Failed to sync profile to Supabase:", error.message);
+    const { data, error } = await supabase.auth.updateUser(payload);
+    if (error) {
+      console.warn("Failed to sync profile to Supabase:", error.message);
+      if (isNetworkFetchError(error.message)) {
+        writeStoredAuthUser(next);
+        notifyAuthChanged();
+        writePendingProfileSyncPayload(payload);
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (sessionData.session?.user) {
+            await upsertUserRow(sessionData.session.user, next);
+          }
+        } catch {
+          // Ignore while offline; pending sync will retry.
+        }
+        return next;
       }
-    });
+      throw new Error(error.message);
+    }
+
+    if (data.user) {
+      const normalized = mapSupabaseUserToAuthUser(data.user, next);
+      writeStoredAuthUser(normalized);
+      notifyAuthChanged();
+      await upsertUserRow(data.user, normalized);
+      return normalized;
+    }
   }
 
-  void supabase.auth.getUser().then(({ data, error }) => {
-    if (error || !data.user) return;
-    void upsertUserRow(data.user, next);
-  });
+  writeStoredAuthUser(next);
+  notifyAuthChanged();
+
+  // Best effort sync to public.users even when auth metadata/email did not change.
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data.user) {
+      await upsertUserRow(data.user, next);
+    }
+  } catch {
+    // Ignore background sync failures; local profile state is already updated.
+  }
 
   return next;
 }

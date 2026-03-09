@@ -96,6 +96,75 @@ function extractPhoneLocal(value: string) {
   return formatPhoneLocal(cleaned);
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Failed to read image file."));
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromObjectUrl(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to process selected image."));
+    img.src = url;
+  });
+}
+
+async function toOptimizedAvatarDataUrl(file: File): Promise<string> {
+  if (file.type === "image/svg+xml") {
+    return readFileAsDataUrl(file);
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const baseImage = await loadImageFromObjectUrl(objectUrl);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to process selected image.");
+
+    const maxDimension = 420;
+    const ratio = Math.min(1, maxDimension / Math.max(baseImage.width, baseImage.height));
+    let width = Math.max(1, Math.round(baseImage.width * ratio));
+    let height = Math.max(1, Math.round(baseImage.height * ratio));
+
+    const maxDataUrlLength = 500_000;
+    const qualitySteps = [0.84, 0.76, 0.68, 0.58, 0.5];
+    let dataUrl = "";
+
+    for (let scaleTry = 0; scaleTry < 4; scaleTry += 1) {
+      canvas.width = width;
+      canvas.height = height;
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(baseImage, 0, 0, width, height);
+
+      for (const quality of qualitySteps) {
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+        if (dataUrl.length <= maxDataUrlLength) {
+          return dataUrl;
+        }
+      }
+
+      width = Math.max(140, Math.round(width * 0.84));
+      height = Math.max(140, Math.round(height * 0.84));
+    }
+
+    if (dataUrl) return dataUrl;
+    throw new Error("Selected image is too large. Please choose a smaller photo.");
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 function loadExternalScript(src: string, id: string) {
   return new Promise<void>((resolve, reject) => {
     const existing = document.getElementById(id) as HTMLScriptElement | null;
@@ -132,6 +201,8 @@ export default function DashboardPage() {
   const [phone, setPhone] = useState("");
   const [school, setSchool] = useState(SCHOOL_OPTIONS[0]);
   const [avatarDraft, setAvatarDraft] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const learningCardRef = useRef<HTMLDivElement>(null);
   const vantaEffectRef = useRef<any>(null);
@@ -152,22 +223,30 @@ export default function DashboardPage() {
     setPhone(extractPhoneLocal(user?.phone || ""));
     setSchool(user?.school || SCHOOL_OPTIONS[0]);
     setAvatarDraft(user?.avatarUrl || "");
+    setProfileSaveError("");
   }, [isEditOpen, user]);
 
-  const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setAvatarDraft(reader.result);
+    try {
+      const optimized = await toOptimizedAvatarDataUrl(file);
+      setAvatarDraft(optimized);
+      setProfileSaveError("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to process selected image.";
+      setProfileSaveError(message);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingProfile) return;
     if (isSuperAdmin(user)) {
       setIsEditOpen(false);
       return;
@@ -179,18 +258,28 @@ export default function DashboardPage() {
     const safeSchool = school.trim() || SCHOOL_OPTIONS[0];
     const displayName = [safeFirst, safeLast].filter(Boolean).join(" ") || (safeEmail.split("@")[0] || "test1");
 
-    const next = updateAuthUser({
-      firstName: safeFirst,
-      lastName: safeLast,
-      email: safeEmail || user?.email || "",
-      phone: safePhone ? `+63 ${safePhone}` : "+63 XXX XXX XXXX",
-      school: safeSchool,
-      name: displayName,
-      role: user?.role || "USER",
-      avatarUrl: avatarDraft || undefined,
-    });
-    if (next) setUser(next);
-    setIsEditOpen(false);
+    setProfileSaveError("");
+    setIsSavingProfile(true);
+    try {
+      const next = await updateAuthUser({
+        firstName: safeFirst,
+        lastName: safeLast,
+        email: safeEmail || user?.email || "",
+        phone: safePhone ? `+63 ${safePhone}` : "+63 XXX XXX XXXX",
+        school: safeSchool,
+        name: displayName,
+        role: user?.role || "USER",
+        avatarUrl: avatarDraft || undefined,
+      });
+      if (next) setUser(next);
+      setIsEditOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to save profile. Please try again.";
+      setProfileSaveError(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const name = user?.name || user?.email?.split("@")[0] || "test1";
@@ -1011,17 +1100,23 @@ export default function DashboardPage() {
                       </svg>
                     </div>
 
+                    {profileSaveError && (
+                      <p className="text-[13px] text-[#ff9b8d]">{profileSaveError}</p>
+                    )}
+
                     <div className="flex justify-end pt-2">
                       <button
                         type="submit"
+                        disabled={isSavingProfile}
                         className="inline-flex items-center gap-2 rounded-2xl bg-[#c1ff00] text-[#071007]
                                    px-6 py-3 text-[15px] font-black hover:scale-[1.02] active:scale-[0.99]
-                                   transition-transform shadow-[0_8px_22px_rgba(193,255,0,0.32)]"
+                                   transition-transform shadow-[0_8px_22px_rgba(193,255,0,0.32)]
+                                   disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 disabled:active:scale-100"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
                         </svg>
-                        Save Changes
+                        {isSavingProfile ? "Saving..." : "Save Changes"}
                       </button>
                     </div>
                   </div>
