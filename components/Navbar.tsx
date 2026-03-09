@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AUTH_EVENT_NAME, AuthUser, getAuthUser, logoutAuth } from '../auth';
+import { AUTH_EVENT_NAME, AuthUser, getAuthUser, hasAdminAccess, logoutAuth } from '../auth';
 
 const Navbar: React.FC = () => {
   const [isDark, setIsDark] = useState(false);
@@ -82,8 +82,8 @@ const Navbar: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    logoutAuth();
+  const handleLogout = async () => {
+    await logoutAuth();
     setIsAccountMenuOpen(false);
     window.history.pushState({}, '', '/login');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -91,13 +91,21 @@ const Navbar: React.FC = () => {
 
   const goToDashboard = () => {
     setIsAccountMenuOpen(false);
-    window.history.pushState({}, '', '/dashboard');
+    const target = authUser && hasAdminAccess(authUser) ? '/admin/dashboard' : '/dashboard';
+    window.history.pushState({}, '', target);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const goToSettings = () => {
     setIsAccountMenuOpen(false);
-    window.history.pushState({}, '', '/dashboard');
+    const target = authUser && hasAdminAccess(authUser) ? '/admin/dashboard' : '/dashboard';
+    window.history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const goToUserManagement = () => {
+    setIsAccountMenuOpen(false);
+    window.history.pushState({}, '', '/admin/users');
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
@@ -349,6 +357,14 @@ const Navbar: React.FC = () => {
                         >
                           Dashboard
                         </button>
+                        {hasAdminAccess(authUser) && (
+                          <button
+                            onClick={goToUserManagement}
+                            className="w-full text-left block px-4 py-2.5 text-sm text-brand-dark/75 dark:text-brand-seasalt/75 hover:bg-brand-primary/5 dark:hover:bg-brand-saffron/10 hover:text-brand-primary dark:hover:text-brand-saffron transition-colors"
+                          >
+                            User Management
+                          </button>
+                        )}
                         <a
                           href="/careers"
                           onClick={(e) => handleInternalNav(e, '/careers')}

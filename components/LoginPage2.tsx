@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { loginWithFixedAccount } from "../auth";
+import { loginWithPassword } from "../auth";
 
 // ─── External script loader (unchanged) ──────────────────────────────────────
 function loadExternalScript(src: string, id: string) {
@@ -97,8 +97,28 @@ export default function LoginPage2() {
   const haloRef = useRef<HTMLDivElement>(null);
   const vantaRef = useRef<any>(null);
 
+  const handleBack = () => {
+    const referrer = document.referrer || "";
+    const isInternalReferrer = referrer.startsWith(window.location.origin);
+    if (isInternalReferrer && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.history.pushState({}, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const handleLogoClick = () => {
+    window.history.pushState({}, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
   // Vanta halo — unchanged
   useEffect(() => {
+    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!isDesktop || reduceMotion) return;
+
     let cancelled = false;
     const initVanta = async () => {
       const target = haloRef.current;
@@ -125,23 +145,22 @@ export default function LoginPage2() {
     };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading || submitted) return;
     setError("");
     setLoading(true);
+    const { success, error: authError } = await loginWithPassword(email, password);
+    setLoading(false);
+    if (!success) {
+      setError(authError || "Invalid email or password.");
+      return;
+    }
+    setSubmitted(true);
     setTimeout(() => {
-      const success = loginWithFixedAccount(email, password);
-      setLoading(false);
-      if (!success) {
-        setError("Invalid email or password.");
-        return;
-      }
-      setSubmitted(true);
-      setTimeout(() => {
-        window.history.pushState({}, "", "/dashboard");
-        window.dispatchEvent(new PopStateEvent("popstate"));
-      }, 600);
-    }, 800);
+      window.history.pushState({}, "", "/dashboard");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }, 280);
   };
 
   return (
@@ -167,14 +186,7 @@ export default function LoginPage2() {
             >
               <button
                 type="button"
-                onClick={() => {
-                  if (window.history.length > 1) {
-                    window.history.back();
-                  } else {
-                    window.history.pushState({}, "", "/");
-                    window.dispatchEvent(new PopStateEvent("popstate"));
-                  }
-                }}
+                onClick={handleBack}
                 aria-label="Go back"
                 className="inline-flex items-center justify-center
                            text-[#046241] dark:text-[#FFB347]
@@ -184,16 +196,23 @@ export default function LoginPage2() {
                   <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
-              <img
-                src="https://framerusercontent.com/images/BZSiFYgRc4wDUAuEybhJbZsIBQY.png"
-                alt="Lifewood"
-                className="h-9 w-auto object-contain block dark:hidden"
-              />
-              <img
-                src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png?scale-down-to=512&width=2624&height=474"
-                alt="Lifewood"
-                className="h-9 w-auto object-contain hidden dark:block"
-              />
+              <button
+                type="button"
+                onClick={handleLogoClick}
+                aria-label="Go to home"
+                className="inline-flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#046241]/40 dark:focus-visible:ring-[#FFB347]/45"
+              >
+                <img
+                  src="https://framerusercontent.com/images/BZSiFYgRc4wDUAuEybhJbZsIBQY.png"
+                  alt="Lifewood"
+                  className="h-9 w-auto object-contain block dark:hidden"
+                />
+                <img
+                  src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png?scale-down-to=512&width=2624&height=474"
+                  alt="Lifewood"
+                  className="h-9 w-auto object-contain hidden dark:block"
+                />
+              </button>
             </motion.div>
 
             {/* Headline — two lines clip up */}
@@ -260,7 +279,7 @@ export default function LoginPage2() {
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.4 }}
-                className="mt-4 flex items-center justify-between"
+                className="mt-4 flex items-center justify-between gap-3"
               >
                 <label className="inline-flex items-center gap-2 text-[12px] text-[#1a3326]/55 dark:text-white/50 cursor-pointer select-none">
                   <input
@@ -335,6 +354,27 @@ export default function LoginPage2() {
                   )}
                 </AnimatePresence>
               </motion.button>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.45, duration: 0.4 }}
+                className="mt-4 flex items-center justify-center gap-3"
+              >
+                <p className="text-[12px] text-[#1a3326]/58 dark:text-white/52">
+                  You don't have an account yet?
+                </p>
+                <a
+                  href="/signup"
+                  className="inline-flex items-center justify-center h-8 px-3 rounded-lg
+                             border border-[#046241]/25 dark:border-[#FFB347]/40
+                             text-[10px] font-black uppercase tracking-[0.14em]
+                             text-[#046241] dark:text-[#FFB347]
+                             hover:bg-[#046241]/6 dark:hover:bg-[#FFB347]/10 transition-colors"
+                >
+                  Sign Up
+                </a>
+              </motion.div>
             </motion.form>
 
             {/* Footer note */}

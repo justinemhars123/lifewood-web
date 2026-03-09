@@ -1,6 +1,13 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AUTH_EVENT_NAME, AuthUser, getAuthUser, updateAuthUser } from "../auth";
+import {
+  AUTH_EVENT_NAME,
+  AuthUser,
+  getAuthUser,
+  hasAdminAccess,
+  isSuperAdmin,
+  updateAuthUser,
+} from "../auth";
 
 /* --- design tokens ------------------------------------------------------- */
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -161,6 +168,10 @@ export default function DashboardPage() {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSuperAdmin(user)) {
+      setIsEditOpen(false);
+      return;
+    }
     const safeFirst = firstName.trim();
     const safeLast = lastName.trim();
     const safeEmail = email.trim();
@@ -175,7 +186,7 @@ export default function DashboardPage() {
       phone: safePhone ? `+63 ${safePhone}` : "+63 XXX XXX XXXX",
       school: safeSchool,
       name: displayName,
-      role: user?.role || "LIFEWOOD PH INTERN",
+      role: user?.role || "USER",
       avatarUrl: avatarDraft || undefined,
     });
     if (next) setUser(next);
@@ -184,8 +195,10 @@ export default function DashboardPage() {
 
   const name = user?.name || user?.email?.split("@")[0] || "test1";
   const initial = name.slice(0, 1).toUpperCase();
-  const role = user?.role || "LIFEWOOD PH INTERN";
-  const roleLabel = role.trim() || "LIFEWOOD PH INTERN";
+  const role = user?.role || "USER";
+  const roleLabel = role.trim() || "USER";
+  const canManageUsers = hasAdminAccess(user);
+  const isLockedSuperAdmin = isSuperAdmin(user);
   const avatarUrl = user?.avatarUrl || "";
   const schoolLogo = user?.school ? SCHOOL_LOGOS[user.school] : "";
   const [now, setNow] = useState(() => new Date());
@@ -317,17 +330,34 @@ export default function DashboardPage() {
             </h1>
           </motion.div>
 
-          <motion.div variants={FADE}
-            className="inline-flex items-center gap-2.5 rounded-full px-5 py-2.5
-                       bg-white dark:bg-[#0a3a2d]/70
-                       border border-[#046241]/20 dark:border-[#3ea773]/35
-                       shadow-[0_6px_18px_rgba(4,98,65,0.12)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_rgba(5,56,41,0.28)]
-                       backdrop-blur-md"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#FFB347] flex-shrink-0" />
-            <span className="text-[12px] font-black uppercase tracking-[0.26em] text-[#046241] dark:text-[#78ecab] leading-none whitespace-nowrap">
-              {roleLabel}
-            </span>
+          <motion.div variants={FADE} className="inline-flex items-center gap-2.5">
+            <div
+              className="inline-flex items-center gap-2.5 rounded-full px-5 py-2.5
+                         bg-white dark:bg-[#0a3a2d]/70
+                         border border-[#046241]/20 dark:border-[#3ea773]/35
+                         shadow-[0_6px_18px_rgba(4,98,65,0.12)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_20px_rgba(5,56,41,0.28)]
+                         backdrop-blur-md"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#FFB347] flex-shrink-0" />
+              <span className="text-[12px] font-black uppercase tracking-[0.26em] text-[#046241] dark:text-[#78ecab] leading-none whitespace-nowrap">
+                {roleLabel}
+              </span>
+            </div>
+            {canManageUsers && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.history.pushState({}, "", "/admin/users");
+                  window.dispatchEvent(new PopStateEvent("popstate"));
+                }}
+                className="h-10 px-4 rounded-full bg-[#046241] dark:bg-[#FFB347]
+                           text-white dark:text-[#0f2318]
+                           text-[10px] font-black uppercase tracking-[0.14em]
+                           hover:opacity-90 transition-opacity"
+              >
+                User Management
+              </button>
+            )}
           </motion.div>
         </motion.div>
 
@@ -392,27 +422,28 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Hover edit profile overlay */}
-              <div
-                className="absolute inset-0 flex items-center justify-center pb-16
-                           opacity-0 group-hover:opacity-100 transition-opacity duration-300
-                           bg-black/25 pointer-events-none group-hover:pointer-events-auto"
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsEditOpen(true)}
-                  className="pointer-events-auto inline-flex items-center gap-2 rounded-full
-                             bg-[#0e1013] border border-white/12 text-white/90
-                             px-4 py-2 text-[12px] font-black uppercase tracking-[0.1em]
-                             hover:bg-[#14171b] transition-colors"
+              {!isLockedSuperAdmin && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center pb-16
+                             opacity-0 group-hover:opacity-100 transition-opacity duration-300
+                             bg-black/25 pointer-events-none group-hover:pointer-events-auto"
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10-10a2.1 2.1 0 0 0-3-3L5 17v3z" />
-                    <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M13.5 6.5l4 4" />
-                  </svg>
-                  Edit Profile
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(true)}
+                    className="pointer-events-auto inline-flex items-center gap-2 rounded-full
+                               bg-[#0e1013] border border-white/12 text-white/90
+                               px-4 py-2 text-[12px] font-black uppercase tracking-[0.1em]
+                               hover:bg-[#14171b] transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10-10a2.1 2.1 0 0 0-3-3L5 17v3z" />
+                      <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M13.5 6.5l4 4" />
+                    </svg>
+                    Edit Profile
+                  </button>
+                </div>
+              )}
 
               <div className="absolute left-4 right-4 bottom-4 rounded-[22px] bg-[#171a1d] border border-white/10 p-3.5">
                 <div className="flex items-center justify-between gap-3">
@@ -429,13 +460,21 @@ export default function DashboardPage() {
                       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/46 truncate">
                         {role}
                       </p>
+                      {isLockedSuperAdmin && (
+                        <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#c1ff00]">
+                          Locked account
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsEditOpen(true)}
+                    onClick={() => {
+                      if (!isLockedSuperAdmin) setIsEditOpen(true);
+                    }}
+                    disabled={isLockedSuperAdmin}
                     className="w-12 h-12 rounded-full bg-white text-[#0f1215] overflow-hidden flex items-center justify-center
-                               hover:scale-105 active:scale-95 transition-transform"
+                               hover:scale-105 active:scale-95 transition-transform disabled:opacity-50 disabled:hover:scale-100"
                     aria-label="Edit profile"
                   >
                     {schoolLogo ? (
@@ -824,7 +863,7 @@ export default function DashboardPage() {
         </motion.div>
 
         <AnimatePresence>
-          {isEditOpen && (
+          {isEditOpen && !isLockedSuperAdmin && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
