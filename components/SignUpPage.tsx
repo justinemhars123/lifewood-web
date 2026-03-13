@@ -31,6 +31,8 @@ function loadExternalScript(src: string, id: string) {
 }
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+const VERIFY_MESSAGE =
+  "Account created. Verification email sent. Check inbox/spam and use the link to activate your account.";
 
 const CSS = `
   @keyframes lw-shimmer {
@@ -119,6 +121,11 @@ export default function SignUpPage() {
   };
 
   useEffect(() => {
+    if (isAuthenticated()) {
+      window.history.pushState({}, "", "/dashboard");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+
     const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!isDesktop || reduceMotion) return;
@@ -192,10 +199,6 @@ export default function SignUpPage() {
       return;
     }
 
-    if (message) {
-      setInfo(message);
-    }
-
     setSubmitted(true);
     const authedNow = isAuthenticated();
     if (authedNow) {
@@ -206,8 +209,8 @@ export default function SignUpPage() {
       return;
     }
 
-    // Keep user on this page so the verification-email message remains visible.
-    setSubmitted(false);
+    // Keep user on this page with the verification message visible.
+    setInfo(message || VERIFY_MESSAGE);
     setPassword("");
   };
 
@@ -295,156 +298,178 @@ export default function SignUpPage() {
               Use your work email to register and access your Lifewood workspace.
             </motion.p>
 
-            <motion.form
-              onSubmit={handleSubmit}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.22, ease: EASE }}
-            >
-              <div className="rounded-2xl border border-[#e6ede8] dark:border-white/10 bg-[#fbfcfb] dark:bg-[#0f1f17] shadow-[0_4px_24px_rgba(4,98,65,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] p-5 md:p-6">
-                <div className="space-y-4">
-                  <Field
-                    id="signup-full-name"
-                    label="Full Name"
-                    placeholder="Juan Dela Cruz"
-                    autoComplete="name"
-                    value={fullName}
-                    onChange={setFullName}
-                  />
-                  <Field
-                    id="signup-email"
-                    label="Email"
-                    type="email"
-                    placeholder="you@lifewood.com"
-                    autoComplete="email"
-                    value={email}
-                    onChange={setEmail}
-                  />
-                  <Field
-                    id="signup-password"
-                    label="Password"
-                    type="password"
-                    placeholder="Create a password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={setPassword}
-                  />
-                </div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.4 }}
-                className="mt-4 flex items-center justify-between"
-              >
-                <a
-                  href="/login"
-                  className="text-[12px] text-[#1a3326]/60 dark:text-white/55 hover:text-[#046241] dark:hover:text-[#FFB347] transition-colors"
+            <AnimatePresence mode="wait">
+              {submitted ? (
+                <motion.div
+                  key="verify-message"
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.6, ease: EASE }}
+                  className="rounded-2xl border border-[#dfe9e3] bg-white/80 backdrop-blur p-6 md:p-7 shadow-[0_12px_30px_rgba(4,98,65,0.08)]"
                 >
-                  Already have an account? Sign in
-                </a>
-                <a
-                  href="/contact"
-                  className="text-[12px] text-[#1a3326]/50 dark:text-white/45 hover:text-[#046241] dark:hover:text-[#FFB347] transition-colors"
-                >
-                  Need help?
-                </a>
-              </motion.div>
-
-              <AnimatePresence>
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="mt-3 text-[11px] text-red-500 dark:text-red-400 font-semibold"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {info && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="mt-3 text-[11px] text-[#046241] dark:text-[#FFB347] font-semibold"
-                  >
-                    {info}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              <motion.button
-                type="submit"
-                disabled={loading || submitted}
-                whileHover={{ scale: 1.015 }}
-                whileTap={{ scale: 0.985 }}
-                transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                className="lw-btn-shimmer mt-5 w-full h-[52px] rounded-xl bg-[#046241] dark:bg-[#FFB347] text-white dark:text-[#0f2318] text-[13px] font-black uppercase tracking-[0.2em] shadow-[0_8px_24px_rgba(4,98,65,0.3)] dark:shadow-[0_8px_24px_rgba(255,179,71,0.3)] disabled:opacity-60 transition-opacity"
-              >
-                <AnimatePresence mode="wait">
-                  {submitted ? (
-                    <motion.span
-                      key="done"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        viewBox="0 0 24 24"
-                      >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#046241] text-white flex items-center justify-center">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      Account created
-                    </motion.span>
-                  ) : loading ? (
-                    <motion.span
-                      key="loading"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center justify-center gap-2.5"
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#046241]">
+                        Check your email
+                      </p>
+                      <h3 className="text-[22px] md:text-[24px] font-black text-[#0f2318] mt-1">
+                        {VERIFY_MESSAGE}
+                      </h3>
+                      <p className="text-[12px] text-[#1a3326]/70 mt-3">
+                        After verifying, you can sign in or refresh this page to continue.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.history.pushState({}, "", "/login");
+                        window.dispatchEvent(new PopStateEvent("popstate"));
+                      }}
+                      className="h-10 px-4 rounded-xl bg-[#046241] text-white text-[11px] font-black uppercase tracking-[0.16em]"
                     >
-                      <motion.span
-                        className="block w-4 h-4 rounded-full border-2 border-white/30 border-t-white"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
+                      Sign in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="h-10 px-4 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.16em] text-[#1a3326]/70 hover:bg-[#f3f8f5]"
+                    >
+                      Refresh page
+                    </button>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="signup-form"
+                  onSubmit={handleSubmit}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.22, ease: EASE }}
+                >
+                  <div className="rounded-2xl border border-[#e6ede8] dark:border-white/10 bg-[#fbfcfb] dark:bg-[#0f1f17] shadow-[0_4px_24px_rgba(4,98,65,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] p-5 md:p-6">
+                    <div className="space-y-4">
+                      <Field
+                        id="signup-full-name"
+                        label="Full Name"
+                        placeholder="Juan Dela Cruz"
+                        autoComplete="name"
+                        value={fullName}
+                        onChange={setFullName}
                       />
-                      Creating account...
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="idle"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center justify-center gap-2"
+                      <Field
+                        id="signup-email"
+                        label="Email"
+                        type="email"
+                        placeholder="you@lifewood.com"
+                        autoComplete="email"
+                        value={email}
+                        onChange={setEmail}
+                      />
+                      <Field
+                        id="signup-password"
+                        label="Password"
+                        type="password"
+                        placeholder="Create a password"
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={setPassword}
+                      />
+                    </div>
+                  </div>
+
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4, duration: 0.4 }}
+                    className="mt-4 flex items-center justify-between"
+                  >
+                    <a
+                      href="/login"
+                      className="text-[12px] text-[#1a3326]/60 dark:text-white/55 hover:text-[#046241] dark:hover:text-[#FFB347] transition-colors"
                     >
-                      Sign Up
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        viewBox="0 0 24 24"
+                      Already have an account? Sign in
+                    </a>
+                    <a
+                      href="/contact"
+                      className="text-[12px] text-[#1a3326]/50 dark:text-white/45 hover:text-[#046241] dark:hover:text-[#FFB347] transition-colors"
+                    >
+                      Need help?
+                    </a>
+                  </motion.div>
+
+                  <AnimatePresence>
+                    {error && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="mt-3 text-[11px] text-red-500 dark:text-red-400 font-semibold"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M5 12h14M12 5l7 7-7 7"
-                        />
-                      </svg>
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            </motion.form>
+                        {error}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.button
+                    type="submit"
+                    disabled={loading || submitted}
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.985 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                    className="lw-btn-shimmer mt-5 w-full h-[52px] rounded-xl bg-[#046241] dark:bg-[#FFB347] text-white dark:text-[#0f2318] text-[13px] font-black uppercase tracking-[0.2em] shadow-[0_8px_24px_rgba(4,98,65,0.3)] dark:shadow-[0_8px_24px_rgba(255,179,71,0.3)] disabled:opacity-60 transition-opacity"
+                  >
+                    <AnimatePresence mode="wait">
+                      {loading ? (
+                        <motion.span
+                          key="loading"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center justify-center gap-2.5"
+                        >
+                          <motion.span
+                            className="block w-4 h-4 rounded-full border-2 border-white/30 border-t-white"
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 0.75, repeat: Infinity, ease: "linear" }}
+                          />
+                          Creating account...
+                        </motion.span>
+                      ) : (
+                        <motion.span
+                          key="idle"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          Sign Up
+                          <svg
+                            className="w-3.5 h-3.5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5 12h14M12 5l7 7-7 7"
+                            />
+                          </svg>
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </motion.form>
+              )}
+            </AnimatePresence>
 
             <motion.p
               initial={{ opacity: 0 }}

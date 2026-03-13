@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 const CAREERS_HERO_IMAGE =
   "https://framerusercontent.com/images/DF2gzPqqVW8QGp7Jxwp1y5257xk.jpg?height=4000&width=6000";
-const JOIN_US_LINK = "https://application-form-ph.vercel.app";
+const JOIN_US_LINK = "/join-us";
 
 const TAG_ROWS = [
   ["Flexible", "Supportive", "Collaborative", "Innovative", "Flexible", "Supportive"],
@@ -360,6 +360,10 @@ export default function CareersPage() {
   // Divider line ref for the closing section
   const dividerRef = useRef<HTMLDivElement>(null);
   useReveal(dividerRef as React.RefObject<HTMLElement>);
+  const handleJoinUs = () => {
+    window.history.pushState({}, "", JOIN_US_LINK);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
 
   return (
     <main className="bg-brand-paper dark:bg-brand-dark text-[#0f2318] dark:text-white overflow-x-hidden">
@@ -402,10 +406,9 @@ export default function CareersPage() {
                 />
 
                 {/* CTA — original markup, wrapped in FadeIn timing */}
-                <a
-                  href={JOIN_US_LINK}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={handleJoinUs}
                   className="inline-flex items-center gap-3 rounded-full
                              bg-[#046241] dark:bg-[#FFB347]
                              text-white dark:text-[#0f2318]
@@ -417,7 +420,7 @@ export default function CareersPage() {
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </a>
+                </button>
               </div>
             </FadeIn>
 

@@ -3,6 +3,7 @@
 
 create table if not exists public.users (
   id uuid primary key references auth.users (id) on delete cascade,
+  display_id text unique,
   email text not null unique,
   full_name text,
   first_name text,
@@ -24,6 +25,7 @@ alter table public.users add column if not exists last_name text;
 alter table public.users add column if not exists phone text;
 alter table public.users add column if not exists school text;
 alter table public.users add column if not exists avatar_url text;
+alter table public.users add column if not exists display_id text;
 alter table public.users add column if not exists role text;
 alter table public.users add column if not exists status text;
 alter table public.users add column if not exists last_seen timestamptz;
@@ -69,6 +71,16 @@ begin
   ) then
     create unique index users_email_key on public.users (email);
   end if;
+
+  if not exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and tablename = 'users'
+      and indexname = 'users_display_id_key'
+  ) then
+    create unique index users_display_id_key on public.users (display_id);
+  end if;
 end;
 $$;
 
@@ -87,6 +99,52 @@ create trigger trg_users_updated_at
 before update on public.users
 for each row
 execute function public.set_users_updated_at();
+
+create or replace function public.set_users_display_id()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.display_id is null or trim(new.display_id) = '' then
+    new.display_id := 'PH' || lpad(nextval('public.users_display_id_seq')::text, 3, '0');
+  end if;
+  return new;
+end;
+$$;
+
+do $$
+declare
+  max_suffix int;
+begin
+  if not exists (
+    select 1
+    from pg_class
+    where relkind = 'S'
+      and relname = 'users_display_id_seq'
+  ) then
+    create sequence public.users_display_id_seq;
+  end if;
+
+  select max(nullif(regexp_replace(display_id, '\D', '', 'g'), '')::int)
+    into max_suffix
+  from public.users
+  where display_id is not null and display_id <> '';
+
+  if max_suffix is not null then
+    perform setval('public.users_display_id_seq', max_suffix);
+  end if;
+
+  update public.users
+  set display_id = 'PH' || lpad(nextval('public.users_display_id_seq')::text, 3, '0')
+  where display_id is null or display_id = '';
+end;
+$$;
+
+drop trigger if exists trg_users_display_id on public.users;
+create trigger trg_users_display_id
+before insert on public.users
+for each row
+execute function public.set_users_display_id();
 
 do $$
 declare
@@ -220,7 +278,7 @@ begin
           last_name = excluded.last_name,
           phone = excluded.phone,
           school = excluded.school,
-          avatar_url = excluded.avatar_url,
+          avatar_url = coalesce(nullif(excluded.avatar_url, ''), public.users.avatar_url),
           role = excluded.role,
           status = 'Active',
           last_seen = timezone('utc', now()),
@@ -292,7 +350,7 @@ begin
         last_name = excluded.last_name,
         phone = excluded.phone,
         school = excluded.school,
-        avatar_url = excluded.avatar_url,
+        avatar_url = coalesce(nullif(excluded.avatar_url, ''), public.users.avatar_url),
         role = excluded.role,
         status = excluded.status,
         last_seen = excluded.last_seen,
@@ -369,7 +427,7 @@ on conflict (id) do update
       last_name = excluded.last_name,
       phone = excluded.phone,
       school = excluded.school,
-      avatar_url = excluded.avatar_url,
+      avatar_url = coalesce(nullif(excluded.avatar_url, ''), public.users.avatar_url),
       role = excluded.role,
       status = excluded.status,
       last_seen = excluded.last_seen,

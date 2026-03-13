@@ -8,6 +8,7 @@ import {
   isSuperAdmin,
   updateAuthUser,
 } from "../auth";
+import { supabase } from "../supabaseClient";
 
 /* --- design tokens ------------------------------------------------------- */
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -203,6 +204,13 @@ export default function DashboardPage() {
   const [avatarDraft, setAvatarDraft] = useState("");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [showPasswordToast, setShowPasswordToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const learningCardRef = useRef<HTMLDivElement>(null);
   const vantaEffectRef = useRef<any>(null);
@@ -224,6 +232,12 @@ export default function DashboardPage() {
     setSchool(user?.school || SCHOOL_OPTIONS[0]);
     setAvatarDraft(user?.avatarUrl || "");
     setProfileSaveError("");
+    setIsChangingPassword(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setPasswordError("");
+    setPasswordSuccess("");
+    setShowPasswordToast(false);
   }, [isEditOpen, user]);
 
   const handleAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,8 +248,34 @@ export default function DashboardPage() {
       setAvatarDraft(optimized);
       setProfileSaveError("");
       if (!isSuperAdmin(user)) {
-        const next = await updateAuthUser({ avatarUrl: optimized });
-        if (next) setUser(next);
+        setUser((prev) => (prev ? { ...prev, avatarUrl: optimized } : prev));
+      }
+
+      const tasks: Promise<unknown>[] = [];
+      if (!isSuperAdmin(user)) {
+        tasks.push(
+          updateAuthUser({ avatarUrl: optimized }).then((next) => {
+            if (next) setUser(next);
+          })
+        );
+      }
+      tasks.push(
+        (async () => {
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) throw sessionError;
+          if (sessionData.session?.user?.id) {
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({ avatar_url: optimized })
+              .eq("id", sessionData.session.user.id);
+            if (updateError) throw updateError;
+          }
+        })()
+      );
+
+      const results = await Promise.allSettled(tasks);
+      if (results.some((res) => res.status === "rejected")) {
+        setProfileSaveError("Saved locally, but failed to sync avatar. Please try again.");
       }
     } catch (error) {
       const message =
@@ -257,7 +297,7 @@ export default function DashboardPage() {
     }
     const safeFirst = firstName.trim();
     const safeLast = lastName.trim();
-    const safeEmail = email.trim();
+    const safeEmail = user?.email || email.trim();
     const safePhone = formatPhoneLocal(phone.trim());
     const safeSchool = school.trim() || SCHOOL_OPTIONS[0];
     const displayName = [safeFirst, safeLast].filter(Boolean).join(" ") || (safeEmail.split("@")[0] || "test1");
@@ -283,6 +323,57 @@ export default function DashboardPage() {
       setProfileSaveError(message);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordSaving) return;
+    if (!user?.email) return;
+    if (isSuperAdmin(user)) {
+      setPasswordError("Super admin password cannot be changed here.");
+      return;
+    }
+    if (!currentPassword || !newPassword) {
+      setPasswordError("Please enter current and new password.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters.");
+      return;
+    }
+
+    setPasswordError("");
+    setPasswordSuccess("");
+    setPasswordSaving(true);
+    try {
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (reauthError) throw reauthError;
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) throw updateError;
+
+      setPasswordSuccess("Password updated successfully.");
+      setShowPasswordToast(true);
+      window.setTimeout(() => {
+        setShowPasswordToast(false);
+      }, 2800);
+      setCurrentPassword("");
+      setNewPassword("");
+    } catch (error) {
+      const rawMessage =
+        error instanceof Error ? error.message : "Failed to update password.";
+      const message = rawMessage.toLowerCase().includes("invalid login credentials")
+        ? "Invalid current password."
+        : rawMessage;
+      setPasswordError(message);
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -962,16 +1053,33 @@ export default function DashboardPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[120] bg-black/65 backdrop-blur-sm px-4 py-8 md:p-10 flex items-center justify-center"
-              onClick={() => setIsEditOpen(false)}
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  setIsEditOpen(false);
+                }
+              }}
             >
               <motion.div
                 initial={{ opacity: 0, y: 18, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.98 }}
                 transition={{ duration: 0.26, ease: EASE }}
-                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
                 className="w-full max-w-[980px] rounded-[28px] border border-white/10 bg-[#07090c] text-white p-5 md:p-8 shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
               >
+                <AnimatePresence>
+                  {showPasswordToast && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -12 }}
+                      transition={{ duration: 0.3, ease: EASE }}
+                      className="absolute right-6 top-6 rounded-xl border border-[#c1ff00]/40 bg-[#0b120e] px-4 py-3 text-[12px] font-semibold text-[#c1ff00] shadow-[0_10px_24px_rgba(0,0,0,0.35)]"
+                    >
+                      Password changed successfully.
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <div className="flex items-start justify-between gap-4 mb-5">
                   <div>
                     <h2 className="text-[34px] md:text-[42px] font-black leading-[0.95]">Edit Profile</h2>
@@ -987,144 +1095,219 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveProfile} className="grid grid-cols-1 lg:grid-cols-[190px_minmax(0,1fr)] items-start gap-6 lg:gap-10">
-                  <div className="flex lg:flex-col items-center lg:items-start gap-4 lg:gap-3">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="relative w-[120px] h-[120px] rounded-full bg-white/8 border border-white/20 flex items-center justify-center hover:border-[#c1ff00]/70 transition-colors"
-                      aria-label="Change profile photo"
-                    >
-                      {avatarDraft ? (
-                        <div className="absolute inset-0 rounded-full overflow-hidden">
-                          <img src={avatarDraft} alt="Profile preview" className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <svg className="w-12 h-12 text-white/52" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <circle cx="12" cy="8" r="3.3" strokeWidth="1.8" />
-                          <path strokeWidth="1.8" strokeLinecap="round" d="M6.3 18c0-3 2.5-5.4 5.7-5.4s5.7 2.4 5.7 5.4" />
-                        </svg>
+                {isChangingPassword ? (
+                  <form onSubmit={handlePasswordChange} className="grid grid-cols-1 items-start gap-6">
+                    <div className="space-y-5">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Current Password</label>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Enter current password"
+                          className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">New Password</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
+                        />
+                      </div>
+
+                      {passwordError && (
+                        <p className="text-[13px] text-[#ff9b8d]">{passwordError}</p>
                       )}
-                      <span className="absolute -right-1 -bottom-1 z-10 w-9 h-9 rounded-full bg-[#c1ff00] text-[#071007] flex items-center justify-center border-[3px] border-[#07090c]">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l9.8-9.8a2 2 0 1 0-2.8-2.8L5 17v3z" />
-                          <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M13.2 6.8l4 4" />
-                        </svg>
-                      </span>
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleAvatarPick}
-                    />
-                    <p className="text-[12px] text-white/75">Tap to change</p>
-                  </div>
+                      {passwordSuccess && (
+                        <div className="rounded-xl border border-[#c1ff00]/40 bg-[#c1ff00]/10 px-3 py-2 text-[12px] font-semibold text-[#c1ff00]">
+                          {passwordSuccess}
+                        </div>
+                      )}
 
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">First Name</label>
-                        <input
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          placeholder="First name"
-                          className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Last Name</label>
-                        <input
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          placeholder="Last name"
-                          className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Gmail / Email</label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="yourname@gmail.com"
-                        className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Phone Number</label>
-                      <div className="flex">
-                        <span
-                          className="inline-flex items-center h-12 px-4 rounded-l-xl border border-r-0 border-white/20 bg-[#1b2229] text-white/90 font-semibold"
-                          aria-hidden="true"
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsChangingPassword(false);
+                            setPasswordError("");
+                          }}
+                          className="h-11 px-5 rounded-xl border border-white/20 text-white text-[11px] font-black uppercase tracking-[0.16em]"
                         >
-                          +63
-                        </span>
-                        <input
-                          value={phone}
-                          onChange={(e) => setPhone(formatPhoneLocal(e.target.value))}
-                          placeholder="XXX XXX XXXX"
-                          inputMode="numeric"
-                          maxLength={12}
-                          className="flex-1 h-12 rounded-r-xl rounded-l-none bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
-                        />
+                          Back to profile
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={passwordSaving}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-[#c1ff00] text-[#071007]
+                                     px-6 py-3 text-[15px] font-black hover:scale-[1.02] active:scale-[0.99]
+                                     transition-transform shadow-[0_8px_22px_rgba(193,255,0,0.32)]
+                                     disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 disabled:active:scale-100"
+                        >
+                          {passwordSaving ? "Updating..." : "Update Password"}
+                        </button>
                       </div>
                     </div>
-
-                    <div className="relative">
-                      <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">School / University</label>
-                      <select
-                        value={school}
-                        onChange={(e) => setSchool(e.target.value)}
-                        className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 pr-11 text-white outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors appearance-none"
-                        style={{ colorScheme: "dark" }}
-                      >
-                        {SCHOOL_OPTIONS.map((opt) => (
-                          <option
-                            key={opt}
-                            value={opt}
-                            className="bg-[#11161d] text-white"
-                            style={{ backgroundColor: "#11161d", color: "#ffffff" }}
-                          >
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                      <svg
-                        aria-hidden="true"
-                        className="pointer-events-none absolute right-4 bottom-[14px] w-4 h-4 text-white/75"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-
-                    {profileSaveError && (
-                      <p className="text-[13px] text-[#ff9b8d]">{profileSaveError}</p>
-                    )}
-
-                    <div className="flex justify-end pt-2">
+                  </form>
+                ) : (
+                  <form onSubmit={handleSaveProfile} className="grid grid-cols-1 lg:grid-cols-[190px_minmax(0,1fr)] items-start gap-6 lg:gap-10">
+                    <div className="flex lg:flex-col items-center lg:items-start gap-4 lg:gap-3">
                       <button
-                        type="submit"
-                        disabled={isSavingProfile}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-[#c1ff00] text-[#071007]
-                                   px-6 py-3 text-[15px] font-black hover:scale-[1.02] active:scale-[0.99]
-                                   transition-transform shadow-[0_8px_22px_rgba(193,255,0,0.32)]
-                                   disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 disabled:active:scale-100"
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="relative w-[120px] h-[120px] rounded-full bg-white/8 border border-white/20 flex items-center justify-center hover:border-[#c1ff00]/70 transition-colors"
+                        aria-label="Change profile photo"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
-                        </svg>
-                        {isSavingProfile ? "Saving..." : "Save Changes"}
+                        {avatarDraft ? (
+                          <div className="absolute inset-0 rounded-full overflow-hidden">
+                            <img src={avatarDraft} alt="Profile preview" className="w-full h-full object-cover" />
+                          </div>
+                        ) : (
+                          <svg className="w-12 h-12 text-white/52" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="8" r="3.3" strokeWidth="1.8" />
+                            <path strokeWidth="1.8" strokeLinecap="round" d="M6.3 18c0-3 2.5-5.4 5.7-5.4s5.7 2.4 5.7 5.4" />
+                          </svg>
+                        )}
+                        <span className="absolute -right-1 -bottom-1 z-10 w-9 h-9 rounded-full bg-[#c1ff00] text-[#071007] flex items-center justify-center border-[3px] border-[#07090c]">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l9.8-9.8a2 2 0 1 0-2.8-2.8L5 17v3z" />
+                            <path strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" d="M13.2 6.8l4 4" />
+                          </svg>
+                        </span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarPick}
+                      />
+                      <p className="text-[12px] text-white/75">Tap to change</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingPassword(true)}
+                        className="mt-2 h-9 px-4 rounded-full border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.16em] hover:border-[#c1ff00]/70"
+                      >
+                        Change Password
                       </button>
                     </div>
-                  </div>
-                </form>
+
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">First Name</label>
+                          <input
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder="First name"
+                            className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Last Name</label>
+                          <input
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder="Last name"
+                            className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Gmail / Email</label>
+                        <input
+                          type="email"
+                          value={email}
+                          readOnly
+                          disabled
+                          placeholder="yourname@gmail.com"
+                          className="w-full h-12 rounded-xl bg-[#11161b] border border-white/15 px-4 text-white/70 placeholder:text-white/35 outline-none cursor-not-allowed"
+                        />
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">
+                          Email is fixed
+                        </p>
+                      </div>
+                      {passwordSuccess && (
+                        <div className="rounded-xl border border-[#c1ff00]/40 bg-[#c1ff00]/10 px-3 py-2 text-[12px] font-semibold text-[#c1ff00]">
+                          {passwordSuccess}
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">Phone Number</label>
+                        <div className="flex">
+                          <span
+                            className="inline-flex items-center h-12 px-4 rounded-l-xl border border-r-0 border-white/20 bg-[#1b2229] text-white/90 font-semibold"
+                            aria-hidden="true"
+                          >
+                            +63
+                          </span>
+                          <input
+                            value={phone}
+                            onChange={(e) => setPhone(formatPhoneLocal(e.target.value))}
+                            placeholder="XXX XXX XXXX"
+                            inputMode="numeric"
+                            maxLength={12}
+                            className="flex-1 h-12 rounded-r-xl rounded-l-none bg-[#151a1f] border border-white/20 px-4 text-white placeholder:text-white/55 outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <label className="block text-[10px] font-black uppercase tracking-[0.2em] text-white/45 mb-2">School / University</label>
+                        <select
+                          value={school}
+                          onChange={(e) => setSchool(e.target.value)}
+                          className="w-full h-12 rounded-xl bg-[#151a1f] border border-white/20 px-4 pr-11 text-white outline-none focus:border-[#c1ff00] focus:ring-2 focus:ring-[#c1ff00]/30 transition-colors appearance-none"
+                          style={{ colorScheme: "dark" }}
+                        >
+                          {SCHOOL_OPTIONS.map((opt) => (
+                            <option
+                              key={opt}
+                              value={opt}
+                              className="bg-[#11161d] text-white"
+                              style={{ backgroundColor: "#11161d", color: "#ffffff" }}
+                            >
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                        <svg
+                          aria-hidden="true"
+                          className="pointer-events-none absolute right-4 bottom-[14px] w-4 h-4 text-white/75"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+
+                      {profileSaveError && (
+                        <p className="text-[13px] text-[#ff9b8d]">{profileSaveError}</p>
+                      )}
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSavingProfile}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-[#c1ff00] text-[#071007]
+                                     px-6 py-3 text-[15px] font-black hover:scale-[1.02] active:scale-[0.99]
+                                     transition-transform shadow-[0_8px_22px_rgba(193,255,0,0.32)]
+                                     disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100 disabled:active:scale-100"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
+                          </svg>
+                          {isSavingProfile ? "Saving..." : "Save Changes"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
               </motion.div>
             </motion.div>
           )}

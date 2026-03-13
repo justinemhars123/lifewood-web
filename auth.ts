@@ -329,7 +329,8 @@ function mergeUserRowIntoAuthUser(current: AuthUser, row: UserProfileRow): AuthU
   const currentAvatar = current.avatarUrl?.trim() || readCachedInlineAvatar(current.email);
   const keepCurrentAvatar =
     !rowAvatar ||
-    (currentAvatar && isInlineDataUrl(currentAvatar) && rowAvatar !== currentAvatar);
+    // If we already have an inline avatar, don't overwrite it with a non-inline URL.
+    (currentAvatar && isInlineDataUrl(currentAvatar) && !isInlineDataUrl(rowAvatar));
   return {
     ...current,
     name: row.full_name?.trim() || fallbackName || current.name,
@@ -590,18 +591,40 @@ export async function updateAuthUser(partial: Partial<AuthUser>): Promise<AuthUs
     ...partial,
     role: normalizeRole(current.role),
   };
+  const normalizeValue = (value?: string) => (value ?? "").trim();
   const metadata: Record<string, string> = {};
-  if (next.name) metadata.name = next.name;
-  if (next.firstName) metadata.firstName = next.firstName;
-  if (next.lastName) metadata.lastName = next.lastName;
-  if (next.phone) metadata.phone = next.phone;
-  if (next.school) metadata.school = next.school;
-  if (next.role) metadata.role = normalizeRole(next.role);
+  const currentName = normalizeValue(current.name);
+  const nextName = normalizeValue(next.name);
+  if (nextName !== currentName) metadata.name = nextName;
+
+  const currentFirst = normalizeValue(current.firstName);
+  const nextFirst = normalizeValue(next.firstName);
+  if (nextFirst !== currentFirst) metadata.firstName = nextFirst;
+
+  const currentLast = normalizeValue(current.lastName);
+  const nextLast = normalizeValue(next.lastName);
+  if (nextLast !== currentLast) metadata.lastName = nextLast;
+
+  const currentPhone = normalizeValue(current.phone);
+  const nextPhone = normalizeValue(next.phone);
+  if (nextPhone !== currentPhone) metadata.phone = nextPhone;
+
+  const currentSchool = normalizeValue(current.school);
+  const nextSchool = normalizeValue(next.school);
+  if (nextSchool !== currentSchool) metadata.school = nextSchool;
+
+  const currentRole = normalizeRole(current.role);
+  const nextRole = normalizeRole(next.role);
+  if (nextRole !== currentRole) metadata.role = nextRole;
   // Avoid sending base64 image blobs to auth metadata; this often causes network/request failures.
-  if (next.avatarUrl && !isInlineDataUrl(next.avatarUrl)) metadata.avatarUrl = next.avatarUrl;
+  if (next.avatarUrl && !isInlineDataUrl(next.avatarUrl)) {
+    const currentAvatar = normalizeValue(current.avatarUrl);
+    const nextAvatar = normalizeValue(next.avatarUrl);
+    if (nextAvatar !== currentAvatar) metadata.avatarUrl = nextAvatar;
+  }
 
   const payload: { email?: string; data?: Record<string, string> } = {};
-  if (next.email && next.email !== current.email) payload.email = next.email;
+  // Email changes are not allowed in this app. Always keep the current email.
   if (Object.keys(metadata).length > 0) payload.data = metadata;
 
   if (Object.keys(payload).length > 0) {

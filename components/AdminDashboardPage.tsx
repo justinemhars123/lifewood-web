@@ -8,72 +8,43 @@ import {
   isSuperAdmin,
   logoutAuth,
 } from "../auth";
+import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-type TaskItem = {
+type ManagedRole = "USER" | "ADMIN" | "SUPER ADMIN";
+type ManagedStatus = "Active" | "Pending" | "Suspended";
+
+type UserRow = {
+  id: string;
+  display_id?: string | null;
+  email: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+  status?: string | null;
+  last_seen?: string | null;
+  created_at?: string | null;
+};
+
+type DashboardUser = {
+  id: string;
+  displayId: string;
   name: string;
-  code: string;
-  title: string;
-  time: string;
-  color: string;
+  email: string;
+  avatarUrl: string;
+  role: ManagedRole;
+  status: ManagedStatus;
+  lastSeen: string | null;
+  createdAt: string | null;
 };
-
-type ScheduleItem = {
-  title: string;
-  code: string;
-  time: string;
-  highlighted?: boolean;
-};
-
-const STATS = [
-  { label: "Active sessions", value: "3" },
-  { label: "Pending tasks", value: "24" },
-  { label: "Done tasks", value: "12" },
-];
-
-const TASKS: TaskItem[] = [
-  {
-    name: "Nadia Santos",
-    code: "QOA_ADMIN_21",
-    title: "Approve new user roles",
-    time: "10:25 am",
-    color: "#FFE5CF",
-  },
-  {
-    name: "Marco Torres",
-    code: "QOA_SECURITY_07",
-    title: "Review suspended accounts",
-    time: "10:44 am",
-    color: "#E4F5EA",
-  },
-  {
-    name: "Aisha Khan",
-    code: "QOA_AUDIT_15",
-    title: "Validate permission matrix",
-    time: "11:03 am",
-    color: "#E7EBFF",
-  },
-  {
-    name: "Leila Rahman",
-    code: "QOA_ONBOARD_44",
-    title: "Finalize onboarding batch",
-    time: "11:19 am",
-    color: "#F3E7FF",
-  },
-];
-
-const SCHEDULE: ScheduleItem[] = [
-  { title: "Admin standup", code: "OPS_SYNC", time: "10:00 am" },
-  { title: "Permission sync", code: "SEC_RULES", time: "11:00 am", highlighted: true },
-  { title: "Audit review", code: "AUDIT_WEEKLY", time: "12:00 pm" },
-  { title: "Access cleanup", code: "ACCESS_CLEANUP", time: "01:00 pm" },
-  { title: "User import QA", code: "IMPORT_QA", time: "03:00 pm" },
-];
 
 const ADMIN_NAV_ITEMS = [
   { label: "Dashboard", path: "/admin/dashboard" },
   { label: "User Management", path: "/admin/users" },
+  { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
   { label: "Courses", path: "/admin/courses" },
 ];
@@ -86,6 +57,158 @@ function initials(name: string) {
     .join("");
 }
 
+function normalizeRole(role?: string | null): ManagedRole {
+  const value = (role || "").trim().toLowerCase();
+  if (value.includes("super") && value.includes("admin")) return "SUPER ADMIN";
+  if (value === "admin") return "ADMIN";
+  return "USER";
+}
+
+function normalizeStatus(status?: string | null): ManagedStatus {
+  const value = (status || "").trim().toLowerCase();
+  if (value === "pending") return "Pending";
+  if (value === "suspended") return "Suspended";
+  return "Active";
+}
+
+function formatRelativeTime(isoValue?: string | null) {
+  if (!isoValue) return "Unknown";
+  const parsed = new Date(isoValue);
+  if (Number.isNaN(parsed.getTime())) return "Unknown";
+  const diffMs = Date.now() - parsed.getTime();
+  const seconds = Math.max(0, Math.floor(diffMs / 1000));
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDate(isoValue?: string | null) {
+  if (!isoValue) return "Unknown";
+  const parsed = new Date(isoValue);
+  if (Number.isNaN(parsed.getTime())) return "Unknown";
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function isMissingUsersTableError(message: string) {
+  const text = message.toLowerCase();
+  return (
+    (text.includes("users") && text.includes("does not exist")) ||
+    (text.includes("public.users") && text.includes("not found")) ||
+    (text.includes("could not find") && text.includes("users"))
+  );
+}
+
+function isMissingColumnError(message: string) {
+  const text = message.toLowerCase();
+  return text.includes("column") && text.includes("does not exist");
+}
+
+function toDashboardUser(row: UserRow): DashboardUser | null {
+  const email = (row.email || "").trim().toLowerCase();
+  if (!email) return null;
+  const displayName = row.full_name?.trim() || email.split("@")[0] || "User";
+  return {
+    id: row.id,
+    displayId: row.display_id?.trim() || "",
+    name: displayName,
+    email,
+    avatarUrl: row.avatar_url?.trim() || "",
+    role: email === "admin@gmail.com" ? "SUPER ADMIN" : normalizeRole(row.role),
+    status: normalizeStatus(row.status),
+    lastSeen: row.last_seen || null,
+    createdAt: row.created_at || null,
+  };
+}
+
+function buildSeries(
+  users: DashboardUser[],
+  days: number,
+  getDate: (user: DashboardUser) => string | null
+) {
+  const labels: { key: string; label: string }[] = [];
+  const dayIndex = new Map<string, number>();
+  const now = new Date();
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - offset);
+    d.setHours(0, 0, 0, 0);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    labels.push({
+      key,
+      label: d.toLocaleDateString("en-US", { weekday: "short" }),
+    });
+    dayIndex.set(key, labels.length - 1);
+  }
+  const values = new Array(labels.length).fill(0);
+  users.forEach((user) => {
+    const value = getDate(user);
+    if (!value) return;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return;
+    const key = `${parsed.getFullYear()}-${parsed.getMonth() + 1}-${parsed.getDate()}`;
+    const idx = dayIndex.get(key);
+    if (idx === undefined) return;
+    values[idx] += 1;
+  });
+  return labels.map((entry, idx) => ({
+    label: entry.label,
+    value: values[idx],
+  }));
+}
+
+function BarChart({
+  title,
+  subtitle,
+  series,
+  color,
+}: {
+  title: string;
+  subtitle: string;
+  series: { label: string; value: number }[];
+  color: string;
+}) {
+  const maxValue = Math.max(...series.map((point) => point.value), 1);
+  return (
+    <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#6a7c73]">
+            {title}
+          </p>
+          <p className="text-[11px] text-[#1a3326]/55">{subtitle}</p>
+        </div>
+        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#046241]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#046241] animate-pulse" />
+          Live
+        </span>
+      </div>
+      <div className="flex items-end gap-2 h-20">
+        {series.map((point) => (
+          <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
+            <div
+              className="w-full rounded-lg"
+              style={{
+                height: `${Math.max(6, (point.value / maxValue) * 64)}px`,
+                background: color,
+              }}
+            />
+            <span className="text-[9px] text-[#1a3326]/45">{point.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function navigate(path: string) {
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
@@ -94,6 +217,12 @@ function navigate(path: string) {
 export default function AdminDashboardPage() {
   const [user, setUser] = useState<AuthUser | null>(() => getAuthUser());
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/+$/, ""));
+  const [users, setUsers] = useState<DashboardUser[]>([]);
+  const [applicants, setApplicants] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
 
   useEffect(() => {
     const sync = () => setUser(getAuthUser());
@@ -118,6 +247,156 @@ export default function AdminDashboardPage() {
       }),
     []
   );
+
+  const fetchUsers = async (silent = false) => {
+    if (!canManage) return;
+    if (silent) {
+      setIsRefreshing(true);
+    } else {
+      setLoadingUsers(true);
+    }
+    setLoadError("");
+
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) {
+        setUsers([]);
+        setLoadError("No active Supabase session. Please log in again.");
+        return;
+      }
+
+      const { error: syncError } = await supabase.rpc("sync_all_auth_users_to_public_users");
+      if (syncError) {
+        console.warn("User sync RPC warning:", syncError.message);
+      }
+
+      let { data, error } = await supabase
+        .from("users")
+        .select(
+          "id, display_id, email, full_name, first_name, last_name, avatar_url, role, status, last_seen, created_at"
+        )
+        .order("created_at", { ascending: false })
+        .limit(120);
+
+      if (error && isMissingColumnError(error.message || "")) {
+        const legacyResult = await supabase
+          .from("users")
+          .select("id, email, full_name, role, status, last_seen, created_at")
+          .order("created_at", { ascending: false })
+          .limit(120);
+        data = legacyResult.data;
+        error = legacyResult.error;
+      }
+
+      if (error) throw error;
+
+      const mapped = ((data || []) as UserRow[])
+        .map(toDashboardUser)
+        .filter((entry): entry is DashboardUser => Boolean(entry));
+
+      setUsers(mapped);
+      const { data: applicantsData, error: applicantsError } = await supabase
+        .from("applicants")
+        .select("id, status, created_at")
+        .order("created_at", { ascending: false });
+
+      if (applicantsError) {
+        console.warn("Could not load applicants for dashboard stats", applicantsError);
+      } else {
+        setApplicants(applicantsData || []);
+      }
+
+      setLastSyncAt(new Date());
+    } catch (error) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message || "")
+          : "Failed to load dashboard data.";
+      setLoadError(
+        isMissingUsersTableError(message)
+          ? "Could not read the `users` table. Create it first, then reload."
+          : isMissingColumnError(message)
+            ? "Your `users` table is missing newer columns. Run `supabase/users_setup.sql`, then reload."
+            : message
+      );
+      setUsers([]);
+      setApplicants([]);
+    } finally {
+      setLoadingUsers(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canManage) return;
+    void fetchUsers();
+    const interval = window.setInterval(() => {
+      void fetchUsers(true);
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [canManage]);
+
+  const totalUsers = users.length;
+  const adminUsers = users.filter((entry) => entry.role === "ADMIN" || entry.role === "SUPER ADMIN").length;
+  const pendingUsers = users.filter((entry) => entry.status === "Pending").length;
+  const activeToday = users.filter((entry) => {
+    const seenAt = entry.lastSeen ? new Date(entry.lastSeen) : null;
+    if (!seenAt || Number.isNaN(seenAt.getTime())) return false;
+    return Date.now() - seenAt.getTime() < 24 * 60 * 60 * 1000;
+  }).length;
+  const newUsers7d = users.filter((entry) => {
+    const createdAt = entry.createdAt ? new Date(entry.createdAt) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
+    return Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+  }).length;
+
+  const totalApplicants = applicants.length;
+  const newApplicants7d = applicants.filter((entry) => {
+    const createdAt = entry.created_at ? new Date(entry.created_at) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) return false;
+    return Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+  }).length;
+  const acceptedApplicants = applicants.filter((entry) => entry.status === "Accepted").length;
+
+  const signupSeries = useMemo(
+    () => buildSeries(users, 7, (entry) => entry.createdAt),
+    [users]
+  );
+  const activeSeries = useMemo(
+    () => buildSeries(users, 7, (entry) => entry.lastSeen || entry.createdAt),
+    [users]
+  );
+
+  const roleBreakdown = useMemo(() => {
+    const counts: Record<ManagedRole, number> = {
+      USER: 0,
+      ADMIN: 0,
+      "SUPER ADMIN": 0,
+    };
+    users.forEach((entry) => {
+      counts[entry.role] = (counts[entry.role] || 0) + 1;
+    });
+    return counts;
+  }, [users]);
+
+  const statusBreakdown = useMemo(() => {
+    const counts: Record<ManagedStatus, number> = {
+      Active: 0,
+      Pending: 0,
+      Suspended: 0,
+    };
+    users.forEach((entry) => {
+      counts[entry.status] = (counts[entry.status] || 0) + 1;
+    });
+    return counts;
+  }, [users]);
+
+  const latestUsers = users.slice(0, 6);
+  const recentlyActive = [...users]
+    .filter((entry) => entry.lastSeen)
+    .sort((a, b) => (b.lastSeen || "").localeCompare(a.lastSeen || ""))
+    .slice(0, 5);
 
   if (!canManage) {
     return (
@@ -213,95 +492,214 @@ export default function AdminDashboardPage() {
           className="p-5 md:p-7 bg-[#f7faf8] lg:h-screen overflow-y-auto"
         >
             <div className="flex items-start justify-between gap-4 mb-5">
-              <h1 className="text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
-                Dashboard
-              </h1>
+              <div>
+                <h1 className="text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
+                  Admin Dashboard
+                </h1>
+                <p className="text-[12px] text-[#1a3326]/55 mt-1">
+                  Live user insights · Auto-refreshing every 30s
+                </p>
+              </div>
               <div className="flex items-center gap-2">
-                <button className="w-9 h-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] text-[14px] font-black">
-                  !
+                <button
+                  type="button"
+                  onClick={() => void fetchUsers()}
+                  className="h-9 px-4 rounded-full border border-[#d7e4dd] bg-white text-[10px] font-black uppercase tracking-[0.12em] text-[#25473a]"
+                >
+                  {isRefreshing ? "Refreshing..." : "Refresh"}
                 </button>
-                <button className="w-9 h-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] text-[14px] font-black">
-                  @
-                </button>
+                <div className="h-9 px-4 rounded-full border border-[#d7e4dd] bg-white text-[10px] font-black uppercase tracking-[0.12em] text-[#25473a] flex items-center">
+                  {lastSyncAt ? `Last sync ${formatRelativeTime(lastSyncAt.toISOString())}` : "Sync pending"}
+                </div>
               </div>
             </div>
 
+            {loadError && (
+              <div className="mb-4 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-3.5 py-2.5 text-[12px] font-semibold text-[#8a2626]">
+                {loadError}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {STATS.map((card) => (
-                <div key={card.label} className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-                  <p className="text-[12px] text-[#1a3326]/62">{card.label}</p>
-                  <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">{card.value}</p>
-                  <button className="mt-3 text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]">
-                    View all
-                  </button>
-                </div>
-              ))}
+              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
+                <p className="text-[12px] text-[#1a3326]/62">Total users</p>
+                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
+                  {loadingUsers ? "—" : totalUsers}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
+                  New this week: {newUsers7d}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
+                <p className="text-[12px] text-[#1a3326]/62">Active today</p>
+                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
+                  {loadingUsers ? "—" : activeToday}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
+                  Pending invites: {pendingUsers}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
+                <p className="text-[12px] text-[#1a3326]/62">Admin accounts</p>
+                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
+                  {loadingUsers ? "—" : adminUsers}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
+                  Super admins: {roleBreakdown["SUPER ADMIN"]}
+                </p>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_355px] gap-4">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
+                <p className="text-[12px] text-[#1a3326]/62">Total applicants</p>
+                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
+                  {loadingUsers ? "—" : totalApplicants}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
+                  New this week: {loadingUsers ? "—" : newApplicants7d}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
+                <p className="text-[12px] text-[#0051a8]/70">Accepted applicants</p>
+                <p className="mt-1 text-[35px] leading-none font-black text-[#0051a8]">
+                  {loadingUsers ? "—" : acceptedApplicants}
+                </p>
+                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
+                  Conversion tracking
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4 flex flex-col justify-center items-start">
+                  <p className="text-[12px] text-[#1a3326]/62 mb-3">Quick Actions</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/applicants")}
+                    className="h-10 px-5 rounded-lg border border-[#046241] text-[#046241] text-[11px] font-black uppercase tracking-[0.1em] hover:bg-[#046241] hover:text-white transition-colors w-full text-center"
+                  >
+                    Review Applicants
+                  </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <BarChart
+                title="New users"
+                subtitle="Signups in the last 7 days"
+                series={signupSeries}
+                color="#0f6b4d"
+              />
+              <BarChart
+                title="Active users"
+                subtitle="Last seen in the last 7 days"
+                series={activeSeries}
+                color="#FFB347"
+              />
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
               <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-                <div className="px-4 py-3.5 border-b border-[#ecf2ee]">
-                  <h2 className="text-[23px] font-black text-[#10261d]">My tasks</h2>
-                </div>
-                <div className="divide-y divide-[#ecf2ee]">
-                  {TASKS.map((task) => (
-                    <div key={`${task.name}-${task.code}`} className="px-4 py-3 flex items-center gap-3">
-                      <span
-                        className="w-8 h-8 rounded-full flex-shrink-0 inline-flex items-center justify-center text-[10px] font-black text-[#16362a]"
-                        style={{ backgroundColor: task.color }}
-                      >
-                        {initials(task.name)}
-                      </span>
-                      <div className="min-w-0 w-[180px]">
-                        <p className="text-[13px] font-bold truncate">{task.name}</p>
-                        <p className="text-[11px] text-[#1a3326]/55 truncate">{task.code}</p>
-                      </div>
-                      <p className="flex-1 min-w-0 text-[12px] text-[#1a3326]/74 truncate">{task.title}</p>
-                      <p className="text-[12px] text-[#1a3326]/56 whitespace-nowrap">{task.time}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-3 border-t border-[#ecf2ee]">
-                  <button className="text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]">
+                <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex items-center justify-between">
+                  <h2 className="text-[23px] font-black text-[#10261d]">New users</h2>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/users")}
+                    className="text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]"
+                  >
                     View all
                   </button>
+                </div>
+                <div className="divide-y divide-[#ecf2ee]">
+                  {loadingUsers ? (
+                    <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
+                      Loading users from database...
+                    </div>
+                  ) : latestUsers.length === 0 ? (
+                    <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
+                      No users found.
+                    </div>
+                  ) : (
+                    latestUsers.map((entry) => (
+                      <div key={entry.id} className="px-4 py-3 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full border border-[#d8e5de] bg-[#f4f8f6] overflow-hidden flex items-center justify-center text-[11px] font-black text-[#244235]">
+                          {entry.avatarUrl ? (
+                            <img src={entry.avatarUrl} alt={`${entry.name} avatar`} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{initials(entry.name) || "U"}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-bold truncate text-[#0f2318]">{entry.name}</p>
+                          <p className="text-[11px] text-[#1a3326]/55 truncate">{entry.email}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/50">
+                            {entry.displayId || "PH000"}
+                          </p>
+                          <p className="text-[11px] text-[#1a3326]/55">{formatDate(entry.createdAt)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </section>
 
               <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-                <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex items-center justify-between">
-                  <h2 className="text-[19px] font-black text-[#10261d]">Today, {todayLabel}</h2>
-                  <div className="flex items-center gap-1.5">
-                    <button className="w-7 h-7 rounded-lg border border-[#d8e5de] text-[#1a3326]/55">{"<"}</button>
-                    <button className="w-7 h-7 rounded-lg border border-[#d8e5de] text-[#1a3326]/55">{">"}</button>
-                  </div>
+                <div className="px-4 py-3.5 border-b border-[#ecf2ee]">
+                  <h2 className="text-[19px] font-black text-[#10261d]">Realtime analytics</h2>
+                  <p className="text-[11px] text-[#1a3326]/55">Today, {todayLabel}</p>
                 </div>
-                <div className="p-3 space-y-2">
-                  {SCHEDULE.map((slot) => (
-                    <div
-                      key={`${slot.title}-${slot.time}`}
-                      className={`rounded-xl border px-3 py-3 ${
-                        slot.highlighted
-                          ? "bg-[#e98055] border-[#e98055] text-white"
-                          : "bg-[#fbfdfc] border-[#e8efeb] text-[#12261d]"
-                      }`}
-                    >
-                      <p className={`text-[13px] font-bold ${slot.highlighted ? "text-white" : "text-[#12261d]"}`}>
-                        {slot.title}
-                        {" "}
-                        <span className={slot.highlighted ? "text-white/82" : "text-[#1a3326]/42"}>
-                          {slot.code}
-                        </span>
-                      </p>
-                      <p
-                        className={`mt-1 text-[11px] ${
-                          slot.highlighted ? "text-white/90" : "text-[#1a3326]/63"
-                        }`}
-                      >
-                        {slot.time}
-                      </p>
+                <div className="p-4 space-y-4">
+                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Role mix</p>
+                    <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
+                      <div className="flex items-center justify-between">
+                        <span>Users</span>
+                        <span>{roleBreakdown.USER}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Admins</span>
+                        <span>{roleBreakdown.ADMIN}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Super admins</span>
+                        <span>{roleBreakdown["SUPER ADMIN"]}</span>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Status</p>
+                    <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
+                      <div className="flex items-center justify-between">
+                        <span>Active</span>
+                        <span>{statusBreakdown.Active}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Pending</span>
+                        <span>{statusBreakdown.Pending}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Suspended</span>
+                        <span>{statusBreakdown.Suspended}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Recently active</p>
+                    <div className="mt-2 space-y-2">
+                      {recentlyActive.length === 0 ? (
+                        <p className="text-[12px] text-[#1a3326]/55">No recent activity.</p>
+                      ) : (
+                        recentlyActive.map((entry) => (
+                          <div key={entry.id} className="flex items-center justify-between text-[12px] text-[#10261d]">
+                            <span className="truncate">{entry.name}</span>
+                            <span className="text-[#1a3326]/55">{formatRelativeTime(entry.lastSeen)}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </section>
             </div>

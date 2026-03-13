@@ -15,9 +15,11 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 
 type ManagedRole = "USER" | "ADMIN" | "SUPER ADMIN";
 type ManagedStatus = "Active" | "Pending" | "Suspended";
+const ROLE_OPTIONS: ManagedRole[] = ["USER", "ADMIN"];
 
 type ManagedUser = {
   id: string;
+  displayId: string;
   name: string;
   firstName: string;
   lastName: string;
@@ -34,6 +36,7 @@ type ManagedUser = {
 
 type UserRow = {
   id: string;
+  display_id?: string | null;
   email: string;
   full_name?: string | null;
   first_name?: string | null;
@@ -48,7 +51,7 @@ type UserRow = {
 };
 
 const USER_SELECT_PRIMARY =
-  "id, email, full_name, first_name, last_name, phone, school, avatar_url, role, status, last_seen, created_at";
+  "id, display_id, email, full_name, first_name, last_name, phone, school, avatar_url, role, status, last_seen, created_at";
 const USER_SELECT_LEGACY = "id, email, full_name, role, status, last_seen, created_at";
 
 const ADMIN_NAV_ITEMS = [
@@ -123,6 +126,7 @@ function toManagedUser(row: UserRow): ManagedUser | null {
 
   return {
     id: row.id,
+    displayId: row.display_id?.trim() || "",
     name: displayName,
     firstName: row.first_name?.trim() || "",
     lastName: row.last_name?.trim() || "",
@@ -136,6 +140,19 @@ function toManagedUser(row: UserRow): ManagedUser | null {
     createdAt: row.created_at,
     immutable: email === SUPER_ADMIN_EMAIL,
   };
+}
+
+function renderAvatar(name: string, avatarUrl?: string) {
+  const initial = name.trim().slice(0, 1).toUpperCase() || "U";
+  return (
+    <div className="w-9 h-9 rounded-full border border-[#d8e5de] bg-[#f4f8f6] overflow-hidden flex items-center justify-center text-[12px] font-black text-[#244235]">
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={`${name} avatar`} className="w-full h-full object-cover" />
+      ) : (
+        <span>{initial}</span>
+      )}
+    </div>
+  );
 }
 
 function formatDateTime(isoValue?: string | null) {
@@ -185,6 +202,8 @@ export default function UserManagementPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [roleUpdating, setRoleUpdating] = useState(false);
+  const [roleUpdateError, setRoleUpdateError] = useState("");
 
   useEffect(() => {
     const sync = () => setUser(getAuthUser());
@@ -328,6 +347,30 @@ export default function UserManagementPage() {
     setDeleteConfirmText("");
     setDeleteLoading(false);
     setActionError("");
+  };
+
+  const handleRoleUpdate = async (nextRole: ManagedRole) => {
+    if (!viewUser) return;
+    if (viewUser.immutable) return;
+    if (nextRole === viewUser.role) return;
+
+    setRoleUpdating(true);
+    setRoleUpdateError("");
+    const { error } = await supabase
+      .from("users")
+      .update({ role: nextRole })
+      .eq("id", viewUser.id);
+
+    setRoleUpdating(false);
+    if (error) {
+      setRoleUpdateError(error.message || "Failed to update role.");
+      return;
+    }
+
+    setViewUser((prev) => (prev ? { ...prev, role: nextRole } : prev));
+    setUsers((prev) =>
+      prev.map((entry) => (entry.id === viewUser.id ? { ...entry, role: nextRole } : entry))
+    );
   };
 
   const handleDeleteUser = async () => {
@@ -513,8 +556,13 @@ export default function UserManagementPage() {
                     filteredUsers.map((entry) => (
                       <tr key={entry.id} className="border-t border-[#ecf1ee]">
                         <td className="px-4 py-3.5">
-                          <p className="text-[13px] font-bold text-[#0f2318]">{entry.name}</p>
-                          <p className="text-[12px] text-[#1a3326]/62">{entry.email}</p>
+                          <div className="flex items-center gap-3">
+                            {renderAvatar(entry.name, entry.avatarUrl)}
+                            <div>
+                              <p className="text-[13px] font-bold text-[#0f2318]">{entry.name}</p>
+                              <p className="text-[12px] text-[#1a3326]/62">{entry.email}</p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${rolePillClass(entry.role)}`}>
@@ -556,30 +604,108 @@ export default function UserManagementPage() {
 
           {viewUser && (
             <div className="fixed inset-0 z-[90] bg-[#06140f]/55 backdrop-blur-[2px] flex items-center justify-center p-4">
-              <div className="w-full max-w-[520px] rounded-2xl border border-[#dbe7e1] bg-white p-5 md:p-6">
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <h3 className="text-[24px] font-black tracking-[-0.02em] text-[#10261d]">User Details</h3>
+              <div className="w-full max-w-[720px] rounded-2xl border border-[#dbe7e1] bg-white p-5 md:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6a7c73] mb-1">
+                      User Details
+                    </p>
+                    <h3 className="text-[24px] font-black tracking-[-0.02em] text-[#10261d]">
+                      Profile Summary
+                    </h3>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setViewUser(null)}
-                    className="h-8 px-3 rounded-lg border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5]"
+                    className="h-9 px-4 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5]"
                   >
                     Close
                   </button>
                 </div>
 
-                <div className="space-y-2 text-[13px] text-[#163126]">
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Name</span><br />{viewUser.name}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">First Name</span><br />{viewUser.firstName || "Not set"}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Last Name</span><br />{viewUser.lastName || "Not set"}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Email</span><br />{viewUser.email}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Phone</span><br />{viewUser.phone || "Not set"}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">School</span><br />{viewUser.school || "Not set"}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Role</span><br />{viewUser.role}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Status</span><br />{viewUser.status}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">User ID</span><br />{viewUser.id}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Created</span><br />{formatDateTime(viewUser.createdAt)}</p>
-                  <p><span className="font-black text-[#1a3326]/55 uppercase tracking-[0.08em] text-[10px]">Last Seen</span><br />{viewUser.lastSeen}</p>
+                <div className="rounded-2xl border border-[#e0e9e4] bg-[#f7faf8] p-4 flex flex-wrap items-center gap-4 mb-5">
+                  <div className="w-14 h-14 rounded-full border border-[#d8e5de] bg-white overflow-hidden flex items-center justify-center">
+                    {viewUser.avatarUrl ? (
+                      <img src={viewUser.avatarUrl} alt={`${viewUser.name} avatar`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[16px] font-black text-[#244235]">
+                        {viewUser.name.trim().slice(0, 1).toUpperCase() || "U"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-[220px]">
+                    <p className="text-[16px] font-black text-[#0f2318]">{viewUser.name}</p>
+                    <p className="text-[12px] text-[#1a3326]/65">{viewUser.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${rolePillClass(viewUser.role)}`}>
+                      {viewUser.role}
+                    </span>
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${statusPillClass(viewUser.status)}`}>
+                      {viewUser.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px] text-[#163126]">
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">First Name</p>
+                    <p className="mt-1 font-semibold">{viewUser.firstName || "Not set"}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Last Name</p>
+                    <p className="mt-1 font-semibold">{viewUser.lastName || "Not set"}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Phone</p>
+                    <p className="mt-1 font-semibold">{viewUser.phone || "Not set"}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">School</p>
+                    <p className="mt-1 font-semibold">{viewUser.school || "Not set"}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Role</p>
+                    <div className="mt-2">
+                      {viewUser.immutable ? (
+                        <p className="font-semibold">{viewUser.role}</p>
+                      ) : (
+                        <select
+                          value={viewUser.role}
+                          onChange={(event) => handleRoleUpdate(event.target.value as ManagedRole)}
+                          disabled={roleUpdating}
+                          className="h-9 w-full rounded-lg border border-[#d8e5de] bg-white px-3 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241]"
+                        >
+                          {ROLE_OPTIONS.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {roleUpdateError && (
+                        <p className="mt-1 text-[11px] font-semibold text-red-600">{roleUpdateError}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">User ID</p>
+                    <p className="mt-1 font-semibold">
+                      {viewUser.displayId || "PH000"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">System ID</p>
+                    <p className="mt-1 font-semibold break-all">{viewUser.id}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Created</p>
+                    <p className="mt-1 font-semibold">{formatDateTime(viewUser.createdAt)}</p>
+                  </div>
+                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Last Seen</p>
+                    <p className="mt-1 font-semibold">{viewUser.lastSeen}</p>
+                  </div>
                 </div>
               </div>
             </div>

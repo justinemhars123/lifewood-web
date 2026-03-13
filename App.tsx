@@ -14,12 +14,14 @@ import TypeCVerticalLLMData from './components/TypeCVerticalLLMData';
 import TypeDAIGC from './components/TypeDAIGC';
 import PhilanthropyImpactPage from './components/PhilanthropyImpactPage';
 import CareersPage from './components/CareersPage';
+import JoinUsPage from './components/JoinUsPage';
 import ContactPage from './components/ContactPage';
 import LoginPage2 from './components/LoginPage2';
 import SignUpPage from './components/SignUpPage';
 import DashboardPage from './components/DashboardPage';
 import AdminDashboardPage from './components/AdminDashboardPage';
 import UserManagementPage from './components/UserManagementPage';
+import AdminApplicantsPage from './components/AdminApplicantsPage';
 import AboutSection from './components/AboutSection';
 import AboutUsPage from './components/AboutUsPage';
 import OfficesPage from './components/OfficesPage';
@@ -47,6 +49,7 @@ function App() {
     currentPath === '/admin' ||
     currentPath === '/admin/dashboard' ||
     currentPath === '/admin/users' ||
+    currentPath === '/admin/applicants' ||
     currentPath === '/admin/analytics' ||
     currentPath === '/admin/courses';
   const hideChrome =
@@ -134,6 +137,10 @@ function App() {
               <main>
                 <CareersPage />
               </main>
+            ) : currentPath === '/join-us' ? (
+              <main>
+                <JoinUsPage />
+              </main>
             ) : currentPath === '/contact' || currentPath === '/contact-us' ? (
               <main>
                 <ContactPage />
@@ -153,6 +160,10 @@ function App() {
             ) : currentPath === '/admin/users' ? (
               <main>
                 {adminAuthed ? <UserManagementPage /> : <LoginPage2 />}
+              </main>
+            ) : currentPath === '/admin/applicants' ? (
+              <main>
+                {adminAuthed ? <AdminApplicantsPage /> : <LoginPage2 />}
               </main>
             ) : currentPath === '/login2' ? (
               <main>
