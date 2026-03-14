@@ -57,8 +57,8 @@ const USER_SELECT_LEGACY = "id, email, full_name, role, status, last_seen, creat
 const ADMIN_NAV_ITEMS = [
   { label: "Dashboard", path: "/admin/dashboard" },
   { label: "User Management", path: "/admin/users" },
+  { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
-  { label: "Courses", path: "/admin/courses" },
 ];
 
 function navigate(path: string) {
@@ -243,19 +243,20 @@ export default function UserManagementPage() {
         .from("users")
         .select(USER_SELECT_PRIMARY)
         .order("created_at", { ascending: false });
+      let resolvedData = data as UserRow[] | null;
 
       if (error && isMissingColumnError(error.message || "")) {
         const legacyResult = await supabase
           .from("users")
           .select(USER_SELECT_LEGACY)
           .order("created_at", { ascending: false });
-        data = legacyResult.data;
+        resolvedData = legacyResult.data as UserRow[] | null;
         error = legacyResult.error;
       }
 
       if (error) throw error;
 
-      const mapped = ((data || []) as UserRow[])
+      const mapped = ((resolvedData || []) as UserRow[])
         .map(toManagedUser)
         .filter((entry): entry is ManagedUser => Boolean(entry));
 

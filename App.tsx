@@ -82,6 +82,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!adminAuthed) return;
+    const normalizedPath = currentPath || '/';
+    if (normalizedPath !== '/') return;
+    window.history.pushState({}, '', '/admin/dashboard');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, [adminAuthed, currentPath]);
+
+  useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [currentPath]);
 

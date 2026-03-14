@@ -35,7 +35,6 @@ const ADMIN_NAV_ITEMS = [
   { label: "User Management", path: "/admin/users" },
   { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
-  { label: "Courses", path: "/admin/courses" },
 ];
 
 function navigate(path: string) {
@@ -71,6 +70,8 @@ export default function AdminApplicantsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [viewApplicant, setViewApplicant] = useState<Applicant | null>(null);
   const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
   const [acceptEmailModal, setAcceptEmailModal] = useState<Applicant | null>(null);
@@ -81,6 +82,10 @@ export default function AdminApplicantsPage() {
   const [rejectMessage, setRejectMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingReviewId, setPendingReviewId] = useState<string | null>(null);
+  const [autoOpenApplicantId, setAutoOpenApplicantId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("applicantId");
+  });
 
   useEffect(() => {
     const sync = () => setUser(getAuthUser());
@@ -125,17 +130,40 @@ export default function AdminApplicantsPage() {
     void fetchApplicants();
   }, [canManage]);
 
+  useEffect(() => {
+    if (loading) return;
+    if (!autoOpenApplicantId) return;
+    const target = applicants.find((entry) => entry.id === autoOpenApplicantId);
+    if (!target) return;
+    openApplicantDetails(target);
+    setAutoOpenApplicantId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("applicantId");
+    window.history.replaceState({}, "", url.pathname + url.search);
+  }, [loading, autoOpenApplicantId, applicants]);
+
+  const roleOptions = useMemo(() => {
+    const uniqueRoles = new Set<string>();
+    applicants.forEach((applicant) => {
+      if (applicant.position) uniqueRoles.add(applicant.position);
+    });
+    return Array.from(uniqueRoles).sort((a, b) => a.localeCompare(b));
+  }, [applicants]);
+
   const filteredApplicants = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return applicants;
-    return applicants.filter(
-      (a) =>
+    return applicants.filter((a) => {
+      const matchesQuery =
+        !query ||
         a.first_name.toLowerCase().includes(query) ||
         a.last_name.toLowerCase().includes(query) ||
         a.email.toLowerCase().includes(query) ||
-        a.position.toLowerCase().includes(query)
-    );
-  }, [searchTerm, applicants]);
+        a.position.toLowerCase().includes(query);
+      const matchesRole = roleFilter === "all" || a.position === roleFilter;
+      const matchesStatus = statusFilter === "all" || a.status === statusFilter;
+      return matchesQuery && matchesRole && matchesStatus;
+    });
+  }, [searchTerm, applicants, roleFilter, statusFilter]);
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
@@ -418,14 +446,37 @@ export default function AdminApplicantsPage() {
           <div className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
             <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[22px] font-black text-[#10261d]">All Applicants</h2>
-              <div className="h-9 w-full sm:w-[250px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 flex items-center">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search name, email, role"
-                  className="w-full bg-transparent outline-none text-[13px] placeholder:text-[#1a3326]/45"
-                />
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={roleFilter}
+                  onChange={(event) => setRoleFilter(event.target.value)}
+                  className="h-9 w-full sm:w-[220px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 text-[12px] font-semibold text-[#163126] outline-none"
+                >
+                  <option value="all">All Roles</option>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="h-9 w-full sm:w-[190px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 text-[12px] font-semibold text-[#163126] outline-none"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Accepted">Accepted</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+                <div className="h-9 w-full sm:w-[250px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 flex items-center">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Search name, email, role"
+                    className="w-full bg-transparent outline-none text-[13px] placeholder:text-[#1a3326]/45"
+                  />
+                </div>
               </div>
             </div>
 

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AUTH_EVENT_NAME,
   AuthUser,
@@ -11,6 +11,7 @@ import {
 import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+const NOTIFICATIONS_SEEN_KEY = "lifewood_admin_notifications_seen_at";
 
 type ManagedRole = "USER" | "ADMIN" | "SUPER ADMIN";
 type ManagedStatus = "Active" | "Pending" | "Suspended";
@@ -46,7 +47,6 @@ const ADMIN_NAV_ITEMS = [
   { label: "User Management", path: "/admin/users" },
   { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
-  { label: "Courses", path: "/admin/courses" },
 ];
 
 function initials(name: string) {
@@ -176,6 +176,7 @@ function BarChart({
   series: { label: string; value: number }[];
   color: string;
 }) {
+  const reduceMotion = useReducedMotion();
   const maxValue = Math.max(...series.map((point) => point.value), 1);
   return (
     <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
@@ -192,21 +193,66 @@ function BarChart({
         </span>
       </div>
       <div className="flex items-end gap-2 h-20">
-        {series.map((point) => (
+        {series.map((point, index) => {
+          const height = Math.max(6, (point.value / maxValue) * 64);
+          return (
           <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
-            <div
+            <motion.div
               className="w-full rounded-lg"
-              style={{
-                height: `${Math.max(6, (point.value / maxValue) * 64)}px`,
-                background: color,
-              }}
+              initial={reduceMotion ? { height, opacity: 1 } : { height: 0, opacity: 0.6 }}
+              animate={{ height, opacity: 1 }}
+              transition={{ duration: 0.6, ease: EASE, delay: reduceMotion ? 0 : index * 0.06 }}
+              style={{ height, background: color }}
             />
             <span className="text-[9px] text-[#1a3326]/45">{point.label}</span>
           </div>
-        ))}
+        )})}
       </div>
     </div>
   );
+}
+
+function CountUpNumber({
+  value,
+  duration = 800,
+  className,
+}: {
+  value: number;
+  duration?: number;
+  className?: string;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [displayValue, setDisplayValue] = useState(0);
+  const displayRef = useRef(0);
+
+  useEffect(() => {
+    displayRef.current = displayValue;
+  }, [displayValue]);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      setDisplayValue(value);
+      return;
+    }
+    const from = displayRef.current;
+    const delta = value - from;
+    if (delta === 0) return;
+    let rafId = 0;
+    let start = 0;
+    const tick = (now: number) => {
+      if (!start) start = now;
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.round(from + delta * eased));
+      if (progress < 1) {
+        rafId = window.requestAnimationFrame(tick);
+      }
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [value, duration, reduceMotion]);
+
+  return <span className={className}>{displayValue.toLocaleString()}</span>;
 }
 
 function navigate(path: string) {
@@ -223,6 +269,16 @@ export default function AdminDashboardPage() {
   const [loadError, setLoadError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
+  const reduceMotion = useReducedMotion();
+  const [notificationsSeenAt, setNotificationsSeenAt] = useState<Date | null>(() => {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(NOTIFICATIONS_SEEN_KEY);
+    if (!raw) return null;
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  });
 
   useEffect(() => {
     const sync = () => setUser(getAuthUser());
@@ -234,6 +290,24 @@ export default function AdminDashboardPage() {
       window.removeEventListener("popstate", onPop);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return;
+    const handleOutside = (event: MouseEvent) => {
+      if (!notificationsRef.current) return;
+      if (!notificationsRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [isNotificationsOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!notificationsSeenAt) return;
+    window.localStorage.setItem(NOTIFICATIONS_SEEN_KEY, notificationsSeenAt.toISOString());
+  }, [notificationsSeenAt]);
 
   const canManage = hasAdminAccess(user);
   const rootAdmin = isSuperAdmin(user);
@@ -278,6 +352,7 @@ export default function AdminDashboardPage() {
         )
         .order("created_at", { ascending: false })
         .limit(120);
+      let resolvedData = data as UserRow[] | null;
 
       if (error && isMissingColumnError(error.message || "")) {
         const legacyResult = await supabase
@@ -285,20 +360,20 @@ export default function AdminDashboardPage() {
           .select("id, email, full_name, role, status, last_seen, created_at")
           .order("created_at", { ascending: false })
           .limit(120);
-        data = legacyResult.data;
+        resolvedData = legacyResult.data as UserRow[] | null;
         error = legacyResult.error;
       }
 
       if (error) throw error;
 
-      const mapped = ((data || []) as UserRow[])
+      const mapped = ((resolvedData || []) as UserRow[])
         .map(toDashboardUser)
         .filter((entry): entry is DashboardUser => Boolean(entry));
 
       setUsers(mapped);
       const { data: applicantsData, error: applicantsError } = await supabase
         .from("applicants")
-        .select("id, status, created_at")
+        .select("id, first_name, last_name, position, status, created_at")
         .order("created_at", { ascending: false });
 
       if (applicantsError) {
@@ -358,6 +433,35 @@ export default function AdminDashboardPage() {
     return Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
   }).length;
   const acceptedApplicants = applicants.filter((entry) => entry.status === "Accepted").length;
+
+  const sortedApplicants = useMemo(() => {
+    return [...applicants].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  }, [applicants]);
+  const notificationCount = useMemo(() => {
+    if (!notificationsSeenAt) return sortedApplicants.length;
+    const seenAt = notificationsSeenAt.getTime();
+    return sortedApplicants.filter((entry) => {
+      const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+      return createdAt > seenAt;
+    }).length;
+  }, [notificationsSeenAt, sortedApplicants]);
+  const notificationItems = useMemo(() => {
+    return sortedApplicants.slice(0, 6).map((entry: any) => {
+      const name = [entry.first_name, entry.last_name].filter(Boolean).join(" ").trim();
+      const title = name ? `New applicant: ${name}` : "New applicant";
+      const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+      const isUnread = !notificationsSeenAt || createdAt > notificationsSeenAt.getTime();
+      return {
+        id: entry.id,
+        title,
+        body: entry.position ? entry.position : "Join Us submission",
+        meta: entry.created_at ? formatRelativeTime(entry.created_at) : "Unknown",
+        action: "Review applicant",
+        path: `/admin/applicants?applicantId=${entry.id}`,
+        unread: isUnread,
+      };
+    });
+  }, [sortedApplicants, notificationsSeenAt]);
 
   const signupSeries = useMemo(
     () => buildSeries(users, 7, (entry) => entry.createdAt),
@@ -501,6 +605,108 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <div className="relative" ref={notificationsRef}>
+                  <motion.button
+                    type="button"
+                    onClick={() =>
+                      setIsNotificationsOpen((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setNotificationsSeenAt(new Date());
+                        }
+                        return next;
+                      })
+                    }
+                    animate={
+                      notificationCount > 0 && !reduceMotion
+                        ? { rotate: [0, -10, 10, -6, 6, 0] }
+                        : { rotate: 0 }
+                    }
+                    transition={
+                      notificationCount > 0 && !reduceMotion
+                        ? { duration: 1.2, repeat: Infinity, repeatDelay: 2.2 }
+                        : { duration: 0.2 }
+                    }
+                    className="h-9 w-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] flex items-center justify-center relative"
+                    aria-label="Notifications"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
+                      />
+                    </svg>
+                    {notificationCount > 0 && (
+                      <>
+                        <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FFB347] px-1 text-[9px] font-black text-[#1a2b22]">
+                          {notificationCount > 99 ? "99+" : notificationCount}
+                        </span>
+                        <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#FFB347]/60 animate-ping" />
+                      </>
+                    )}
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {isNotificationsOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        transition={{ duration: 0.18, ease: EASE }}
+                        className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_18px_50px_rgba(10,40,26,0.12)] overflow-hidden z-20"
+                      >
+                        <div className="px-4 py-3 border-b border-[#ecf2ee] flex items-center justify-between">
+                          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6a7c73]">
+                            Notifications
+                          </p>
+                          <span className="text-[10px] font-semibold text-[#1a3326]/60">
+                            {notificationCount > 0 ? `${notificationCount} new` : "All caught up"}
+                          </span>
+                        </div>
+                        <div className="max-h-[280px] overflow-y-auto">
+                          {notificationItems.length === 0 ? (
+                            <div className="px-4 py-6 text-[12px] text-[#1a3326]/60">
+                              No new notifications right now.
+                            </div>
+                          ) : (
+                            notificationItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="px-4 py-3 border-b border-[#f0f4f1] last:border-b-0"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="text-[12px] font-bold text-[#10261d]">
+                                    {item.title}
+                                  </p>
+                                  {item.unread && (
+                                    <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-[#FFB347]" />
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-[#1a3326]/60 mt-1">
+                                  {item.body}
+                                </p>
+                                <p className="text-[10px] text-[#1a3326]/45 mt-1">
+                                  {item.meta}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsNotificationsOpen(false);
+                                    navigate(item.path);
+                                  }}
+                                  className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]"
+                                >
+                                  {item.action}
+                                </button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <button
                   type="button"
                   onClick={() => void fetchUsers()}
@@ -524,28 +730,28 @@ export default function AdminDashboardPage() {
               <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
                 <p className="text-[12px] text-[#1a3326]/62">Total users</p>
                 <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : totalUsers}
+                  {loadingUsers ? "—" : <CountUpNumber value={totalUsers} />}
                 </p>
                 <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  New this week: {newUsers7d}
+                  New this week: {loadingUsers ? "—" : <CountUpNumber value={newUsers7d} />}
                 </p>
               </div>
               <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
                 <p className="text-[12px] text-[#1a3326]/62">Active today</p>
                 <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : activeToday}
+                  {loadingUsers ? "—" : <CountUpNumber value={activeToday} />}
                 </p>
                 <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  Pending invites: {pendingUsers}
+                  Pending invites: {loadingUsers ? "—" : <CountUpNumber value={pendingUsers} />}
                 </p>
               </div>
               <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
                 <p className="text-[12px] text-[#1a3326]/62">Admin accounts</p>
                 <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : adminUsers}
+                  {loadingUsers ? "—" : <CountUpNumber value={adminUsers} />}
                 </p>
                 <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  Super admins: {roleBreakdown["SUPER ADMIN"]}
+                  Super admins: {loadingUsers ? "—" : <CountUpNumber value={roleBreakdown["SUPER ADMIN"]} />}
                 </p>
               </div>
             </div>
@@ -554,16 +760,16 @@ export default function AdminDashboardPage() {
               <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
                 <p className="text-[12px] text-[#1a3326]/62">Total applicants</p>
                 <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : totalApplicants}
+                  {loadingUsers ? "—" : <CountUpNumber value={totalApplicants} />}
                 </p>
                 <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  New this week: {loadingUsers ? "—" : newApplicants7d}
+                  New this week: {loadingUsers ? "—" : <CountUpNumber value={newApplicants7d} />}
                 </p>
               </div>
               <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
                 <p className="text-[12px] text-[#0051a8]/70">Accepted applicants</p>
                 <p className="mt-1 text-[35px] leading-none font-black text-[#0051a8]">
-                  {loadingUsers ? "—" : acceptedApplicants}
+                  {loadingUsers ? "—" : <CountUpNumber value={acceptedApplicants} />}
                 </p>
                 <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
                   Conversion tracking
