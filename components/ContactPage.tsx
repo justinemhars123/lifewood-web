@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { supabase } from "../supabaseClient";
 
 const FORM_BG_IMAGE =
   "https://framerusercontent.com/images/RVlLBCqzU3Ny0SMhM5wQf17fN8.png";
@@ -24,6 +25,8 @@ const CONTACT_ITEMS = [
     note: "Monday to Friday",
   },
 ];
+
+const CONTACT_RATE_LIMIT_PREFIX = "lifewood_contact_last_submit:";
 
 function FadeIn({
   children,
@@ -65,6 +68,78 @@ function FadeIn({
 }
 
 export default function ContactPage() {
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const isSubmitDisabled =
+    !form.name.trim() || !form.email.trim() || !form.message.trim();
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSubmitDisabled || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError("");
+    setSubmitSuccess(false);
+
+    try {
+      const email = form.email.trim().toLowerCase();
+      const cooldownWindowMs = 5 * 60 * 1000;
+      const localKey = `${CONTACT_RATE_LIMIT_PREFIX}${email}`;
+      const localLast = typeof window !== "undefined" ? window.localStorage.getItem(localKey) : null;
+      if (localLast) {
+        const lastMs = Number(localLast);
+        if (!Number.isNaN(lastMs)) {
+          const remainingMs = cooldownWindowMs - (Date.now() - lastMs);
+          if (remainingMs > 0) {
+            const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+            throw new Error(
+              `Please wait ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"} before submitting again with the same email.`
+            );
+          }
+        }
+      }
+      const since = new Date(Date.now() - cooldownWindowMs).toISOString();
+      const { data: recent, error: recentError } = await supabase
+        .from("contacts")
+        .select("id, created_at")
+        .eq("email", email)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (recentError) throw new Error("Failed to validate cooldown: " + recentError.message);
+      if (recent && recent.length > 0 && recent[0].created_at) {
+        const lastSubmittedAt = new Date(recent[0].created_at).getTime();
+        const remainingMs = cooldownWindowMs - (Date.now() - lastSubmittedAt);
+        const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+        throw new Error(
+          `Please wait ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"} before submitting again with the same email.`
+        );
+      }
+
+      const { error } = await supabase.from("contacts").insert([
+        {
+          name: form.name,
+          email,
+          message: form.message,
+          status: "New",
+        },
+      ]);
+      if (error) throw new Error("Failed to send message: " + error.message);
+      setSubmitSuccess(true);
+      setForm({ name: "", email: "", message: "" });
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(localKey, String(Date.now()));
+      }
+    } catch (err: any) {
+      setSubmitError(err.message || "An unexpected error occurred.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <main className="bg-brand-paper dark:bg-brand-dark text-[#0f2318] dark:text-white overflow-x-hidden">
       <section className="px-6 md:px-16 pt-14 md:pt-20 pb-20 md:pb-28">
@@ -156,7 +231,17 @@ export default function ContactPage() {
                            backdrop-blur-[3px]
                            border border-white/12 p-5 md:p-6"
               >
-                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                  {submitSuccess && (
+                    <div className="rounded-xl border border-[#d8e5de] bg-white/80 px-4 py-3 text-[12px] font-semibold text-[#046241]">
+                      Your message has been sent. We will get back to you shortly.
+                    </div>
+                  )}
+                  {submitError && (
+                    <div className="rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-4 py-3 text-[12px] font-semibold text-[#8a2626]">
+                      {submitError}
+                    </div>
+                  )}
                   <div>
                     <label
                       htmlFor="contact-name"
@@ -170,6 +255,8 @@ export default function ContactPage() {
                       type="text"
                       autoComplete="name"
                       placeholder="Your name"
+                      value={form.name}
+                      onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
                       className="w-full h-12 rounded-xl px-4 bg-white/90 text-black placeholder:text-black/45
                                  border border-black/12 outline-none
                                  focus:border-[#FFB347] focus:ring-2 focus:ring-[#FFB347]/30 transition-all"
@@ -189,6 +276,8 @@ export default function ContactPage() {
                       type="email"
                       autoComplete="email"
                       placeholder="you@company.com"
+                      value={form.email}
+                      onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                       className="w-full h-12 rounded-xl px-4 bg-white/90 text-black placeholder:text-black/45
                                  border border-black/12 outline-none
                                  focus:border-[#FFB347] focus:ring-2 focus:ring-[#FFB347]/30 transition-all"
@@ -207,6 +296,8 @@ export default function ContactPage() {
                       name="message"
                       rows={6}
                       placeholder="Tell us about your project, timeline, and goals."
+                      value={form.message}
+                      onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
                       className="w-full rounded-xl px-4 py-3 bg-white/90 text-black placeholder:text-black/55
                                  border border-black/12 outline-none resize-y min-h-[180px]
                                  focus:border-[#FFB347] focus:ring-2 focus:ring-[#FFB347]/30 transition-all"
@@ -220,13 +311,15 @@ export default function ContactPage() {
                     </p>
                     <button
                       type="submit"
+                      disabled={isSubmitting || isSubmitDisabled}
                       className="w-full h-12 rounded-full
                                  bg-[#046241] hover:bg-[#035a3b] dark:bg-[#FFB347] dark:hover:bg-[#f3a736]
                                  text-white dark:text-[#0f2318] text-[12px] font-black uppercase tracking-[0.2em]
                                  transition-all hover:scale-[1.01] active:scale-[0.99]
-                                 shadow-[0_8px_24px_rgba(4,98,65,0.35)] dark:shadow-[0_8px_24px_rgba(255,179,71,0.35)]"
+                                 shadow-[0_8px_24px_rgba(4,98,65,0.35)] dark:shadow-[0_8px_24px_rgba(255,179,71,0.35)]
+                                 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Send Message
+                      {isSubmitting ? "Sending..." : "Send Message"}
                     </button>
                   </div>
                 </form>

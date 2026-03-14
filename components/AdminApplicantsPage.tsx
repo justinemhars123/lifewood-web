@@ -35,6 +35,7 @@ const ADMIN_NAV_ITEMS = [
   { label: "User Management", path: "/admin/users" },
   { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
+  { label: "Contacts", path: "/admin/contacts" },
 ];
 
 function navigate(path: string) {

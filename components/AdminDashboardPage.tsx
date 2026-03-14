@@ -47,6 +47,7 @@ const ADMIN_NAV_ITEMS = [
   { label: "User Management", path: "/admin/users" },
   { label: "Applicants", path: "/admin/applicants" },
   { label: "Analytics", path: "/admin/analytics" },
+  { label: "Contacts", path: "/admin/contacts" },
 ];
 
 function initials(name: string) {
@@ -265,6 +266,7 @@ export default function AdminDashboardPage() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/+$/, ""));
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [applicants, setApplicants] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -382,6 +384,17 @@ export default function AdminDashboardPage() {
         setApplicants(applicantsData || []);
       }
 
+      const { data: contactsData, error: contactsError } = await supabase
+        .from("contacts")
+        .select("id, name, email, message, status, created_at")
+        .order("created_at", { ascending: false });
+
+      if (contactsError) {
+        console.warn("Could not load contacts for dashboard stats", contactsError);
+      } else {
+        setContacts(contactsData || []);
+      }
+
       setLastSyncAt(new Date());
     } catch (error) {
       const message =
@@ -397,6 +410,7 @@ export default function AdminDashboardPage() {
       );
       setUsers([]);
       setApplicants([]);
+      setContacts([]);
     } finally {
       setLoadingUsers(false);
       setIsRefreshing(false);
@@ -437,31 +451,52 @@ export default function AdminDashboardPage() {
   const sortedApplicants = useMemo(() => {
     return [...applicants].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   }, [applicants]);
-  const notificationCount = useMemo(() => {
-    if (!notificationsSeenAt) return sortedApplicants.length;
-    const seenAt = notificationsSeenAt.getTime();
-    return sortedApplicants.filter((entry) => {
-      const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
-      return createdAt > seenAt;
-    }).length;
-  }, [notificationsSeenAt, sortedApplicants]);
+  const sortedContacts = useMemo(() => {
+    return [...contacts].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  }, [contacts]);
   const notificationItems = useMemo(() => {
-    return sortedApplicants.slice(0, 6).map((entry: any) => {
-      const name = [entry.first_name, entry.last_name].filter(Boolean).join(" ").trim();
-      const title = name ? `New applicant: ${name}` : "New applicant";
-      const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
-      const isUnread = !notificationsSeenAt || createdAt > notificationsSeenAt.getTime();
-      return {
-        id: entry.id,
-        title,
-        body: entry.position ? entry.position : "Join Us submission",
-        meta: entry.created_at ? formatRelativeTime(entry.created_at) : "Unknown",
-        action: "Review applicant",
-        path: `/admin/applicants?applicantId=${entry.id}`,
-        unread: isUnread,
-      };
-    });
-  }, [sortedApplicants, notificationsSeenAt]);
+    const items = [
+      ...sortedApplicants.map((entry: any) => {
+        const name = [entry.first_name, entry.last_name].filter(Boolean).join(" ").trim();
+        const title = name ? `New applicant: ${name}` : "New applicant";
+        const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+        const isUnread = !notificationsSeenAt || createdAt > notificationsSeenAt.getTime();
+        return {
+          id: `applicant-${entry.id}`,
+          title,
+          body: entry.position ? entry.position : "Join Us submission",
+          meta: entry.created_at ? formatRelativeTime(entry.created_at) : "Unknown",
+          action: "Review applicant",
+          path: `/admin/applicants?applicantId=${entry.id}`,
+          unread: isUnread,
+          createdAt,
+        };
+      }),
+      ...sortedContacts.map((entry: any) => {
+        const title = entry.name ? `New contact: ${entry.name}` : "New contact";
+        const createdAt = entry.created_at ? new Date(entry.created_at).getTime() : 0;
+        const isUnread = !notificationsSeenAt || createdAt > notificationsSeenAt.getTime();
+        return {
+          id: `contact-${entry.id}`,
+          title,
+          body: entry.message ? entry.message : "Contact Us submission",
+          meta: entry.created_at ? formatRelativeTime(entry.created_at) : "Unknown",
+          action: "View contact",
+          path: `/admin/contacts`,
+          unread: isUnread,
+          createdAt,
+        };
+      }),
+    ];
+    return items
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 8);
+  }, [sortedApplicants, sortedContacts, notificationsSeenAt]);
+  const notificationCount = useMemo(() => {
+    if (!notificationsSeenAt) return notificationItems.length;
+    const seenAt = notificationsSeenAt.getTime();
+    return notificationItems.filter((entry) => entry.createdAt > seenAt).length;
+  }, [notificationsSeenAt, notificationItems]);
 
   const signupSeries = useMemo(
     () => buildSeries(users, 7, (entry) => entry.createdAt),

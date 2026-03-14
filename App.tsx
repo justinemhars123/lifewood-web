@@ -22,6 +22,7 @@ import DashboardPage from './components/DashboardPage';
 import AdminDashboardPage from './components/AdminDashboardPage';
 import UserManagementPage from './components/UserManagementPage';
 import AdminApplicantsPage from './components/AdminApplicantsPage';
+import AdminContactsPage from './components/AdminContactsPage';
 import AboutSection from './components/AboutSection';
 import AboutUsPage from './components/AboutUsPage';
 import OfficesPage from './components/OfficesPage';
@@ -51,6 +52,7 @@ function App() {
     currentPath === '/admin/users' ||
     currentPath === '/admin/applicants' ||
     currentPath === '/admin/analytics' ||
+    currentPath === '/admin/contacts' ||
     currentPath === '/admin/courses';
   const hideChrome =
     currentPath === '/login' ||
@@ -160,6 +162,10 @@ function App() {
             ) : currentPath === '/dashboard' ? (
               <main>
                 {authed ? (adminAuthed ? <AdminDashboardPage /> : <DashboardPage />) : <LoginPage2 />}
+              </main>
+            ) : currentPath === '/admin/contacts' ? (
+              <main>
+                {adminAuthed ? <AdminContactsPage /> : <LoginPage2 />}
               </main>
             ) : currentPath === '/admin' || currentPath === '/admin/dashboard' || currentPath === '/admin/analytics' || currentPath === '/admin/courses' ? (
               <main>
