@@ -135,12 +135,12 @@ export default function AIInterviewPage() {
           { role: "model", parts: [{ text: responseText }] }
         ]);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to start chat session:", err);
         setMessages([{
           id: Date.now().toString(),
           role: 'assistant',
-          content: "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again."
+          content: `I apologize, but I am having trouble connecting to the system. Error details: ${err.message || 'Unknown network error'}. Please wait a moment and try again.`
         }]);
       } finally {
         setIsTyping(false);
