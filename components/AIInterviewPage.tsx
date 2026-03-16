@@ -140,7 +140,7 @@ export default function AIInterviewPage() {
         setMessages([{
           id: Date.now().toString(),
           role: 'assistant',
-          content: `I apologize, but I am having trouble connecting to the system. Error details: ${err.message || 'Unknown network error'}. Please wait a moment and try again.`
+          content: "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again."
         }]);
       } finally {
         setIsTyping(false);
