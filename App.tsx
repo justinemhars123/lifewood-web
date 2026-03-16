@@ -31,6 +31,7 @@ import FAQSection from './components/FAQSection';
 import CTASection from './components/CTASection';
 import Footer from './components/Footer';
 import InnovationSection from './components/InnovationSection';
+import AIInterviewPage from './components/AIInterviewPage';
 import {
   AUTH_EVENT_NAME,
   ensureAuthSubscription,
@@ -60,6 +61,9 @@ function App() {
     currentPath === '/signup' ||
     isAdminRoute ||
     (currentPath === '/dashboard' && adminAuthed);
+  
+  const isInterviewRoute = currentPath.startsWith('/interview/');
+  
   const routeTransitionKey = isAdminRoute ? 'admin-shell' : (currentPath || '/');
 
   useEffect(() => {
@@ -102,7 +106,7 @@ function App() {
         animate={{ opacity: 1 }}
         className="min-h-screen selection:bg-brand-primary selection:text-white dark:selection:bg-brand-saffron dark:selection:text-brand-dark transition-colors duration-300 overflow-x-hidden bg-brand-paper dark:bg-brand-dark"
       >
-        {!hideChrome && <Navbar />}
+        {!hideChrome && !isInterviewRoute && <Navbar />}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={routeTransitionKey}
@@ -199,6 +203,10 @@ function App() {
               <main>
                 <OfficesPage />
               </main>
+            ) : isInterviewRoute ? (
+              <main>
+                <AIInterviewPage />
+              </main>
             ) : (
               <main>
                 <Hero />
@@ -213,7 +221,7 @@ function App() {
             )}
           </motion.div>
         </AnimatePresence>
-        {!hideChrome && !isPrivacyRoute && <Footer />}
+        {!hideChrome && !isPrivacyRoute && !isInterviewRoute && <Footer />}
       </motion.div>
     </AnimatePresence>
   );

@@ -47,6 +47,8 @@ function statusPillClass(status: string) {
   if (status === "Reviewed") return "bg-[#e6f7ef] text-[#046241]";
   if (status === "New") return "bg-[#fff4e5] text-[#915700]";
   if (status === "Rejected") return "bg-[#ffe9e9] text-[#9f2424]";
+  if (status === "Pending Interview") return "bg-[#fff8e1] text-[#b38a00] border border-[#ffecb3]";
+  if (status === "Interview Completed") return "bg-[#f4eaf9] text-[#712b91] border border-[#f0dfff]";
   if (status === "Accepted") return "bg-[#eaf4ff] text-[#0051a8] border border-[#d6eaff]";
   return "bg-[#eaf1ed] text-[#2b5242]";
 }
@@ -74,11 +76,12 @@ export default function AdminApplicantsPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewApplicant, setViewApplicant] = useState<Applicant | null>(null);
+  const [viewApplicantResults, setViewApplicantResults] = useState<{ role: string; text: string }[] | null>(null);
   const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
   const [acceptEmailModal, setAcceptEmailModal] = useState<Applicant | null>(null);
   const [rejectEmailModal, setRejectEmailModal] = useState<Applicant | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [successModalStatus, setSuccessModalStatus] = useState<"Accepted" | "Rejected" | null>(null);
+  const [successModalStatus, setSuccessModalStatus] = useState<"Accepted" | "Rejected" | "Pending Interview" | null>(null);
   const [emailMessage, setEmailMessage] = useState("");
   const [rejectMessage, setRejectMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -189,9 +192,23 @@ export default function AdminApplicantsPage() {
     setDeleteConfirmId(id);
   };
 
-  const openApplicantDetails = (applicant: Applicant) => {
+  const openApplicantDetails = async (applicant: Applicant) => {
     setViewApplicant(applicant);
     setPendingReviewId(applicant.status === "New" ? applicant.id : null);
+    setViewApplicantResults(null);
+    try {
+      const { data, error } = await supabase
+        .from("interview_results")
+        .select("qa_transcript")
+        .eq("applicant_id", applicant.id)
+        .single();
+      
+      if (data?.qa_transcript) {
+        setViewApplicantResults(data.qa_transcript);
+      }
+    } catch (err) {
+      console.log("No interview results found or error fetching.", err);
+    }
   };
 
   const closeApplicantDetails = () => {
@@ -219,7 +236,7 @@ export default function AdminApplicantsPage() {
   };
 
   const openAcceptModal = (applicant: Applicant) => {
-    const template = `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to accept your application for the ${applicant.position} role at Lifewood.\n\nPlease reply to this email to confirm your acceptance. We look forward to working with you!\n\nBest regards,\nThe Lifewood Team`;
+    const template = `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to accept your application for the ${applicant.position} role at Lifewood.\n\nTo begin your assessment, please click the button below to verify your details and start your AI Interview.\n\nWe look forward to working with you!\n\nBest regards,\nThe Lifewood Team`;
     setEmailMessage(template);
     setAcceptEmailModal(applicant);
   };
@@ -235,10 +252,10 @@ export default function AdminApplicantsPage() {
     setIsSending(true);
 
     try {
-      // 1. Update the status to 'Accepted' in DB
+      // 1. Update the status to 'Pending Interview' in DB
       const { error } = await supabase
         .from("applicants")
-        .update({ status: "Accepted" })
+        .update({ status: "Pending Interview" })
         .eq("id", acceptEmailModal.id);
 
       if (error) throw error;
@@ -252,8 +269,10 @@ export default function AdminApplicantsPage() {
       const templateParams = {
         to_email: acceptEmailModal.email,
         to_name: acceptEmailModal.first_name,
+        from_name: "Lifewood Admin",
         message: emailMessage,
-        subject: `Update on your application at Lifewood`
+        subject: `Update on your application at Lifewood`,
+        interview_link: `${window.location.origin}/interview/${acceptEmailModal.id}`
       };
 
       await emailjs.send(
@@ -264,14 +283,14 @@ export default function AdminApplicantsPage() {
       );
 
       setApplicants((prev) =>
-        prev.map((a) => (a.id === acceptEmailModal.id ? { ...a, status: "Accepted" } : a))
+        prev.map((a) => (a.id === acceptEmailModal.id ? { ...a, status: "Pending Interview" } : a))
       );
       if (viewApplicant?.id === acceptEmailModal.id) {
-        setViewApplicant((prev) => (prev ? { ...prev, status: "Accepted" } : prev));
+        setViewApplicant((prev) => (prev ? { ...prev, status: "Pending Interview" } : prev));
       }
 
       setAcceptEmailModal(null);
-      setSuccessModalStatus("Accepted");
+      setSuccessModalStatus("Pending Interview");
     } catch (err: any) {
       console.error("EmailJS Error:", err);
       const errorMsg = err.text || err.message || "Unknown error";
@@ -617,20 +636,22 @@ export default function AdminApplicantsPage() {
                       <select
                         value={viewApplicant.status}
                         onChange={(e) => handleUpdateStatus(viewApplicant.id, e.target.value)}
-                        disabled={viewApplicant.status === "Accepted" || viewApplicant.status === "Rejected"}
+                        disabled={["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)}
                         title={
-                          viewApplicant.status === "Accepted" || viewApplicant.status === "Rejected"
+                          ["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
                             ? "Status is locked after a final decision."
                             : undefined
                         }
                         className={`h-9 rounded-lg border border-[#d8e5de] bg-white px-3 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${
-                          viewApplicant.status === "Accepted" || viewApplicant.status === "Rejected"
+                          ["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
                             ? "opacity-70 cursor-not-allowed"
                             : ""
                         }`}
                       >
                         <option value="New">New</option>
                         <option value="Reviewed">Reviewed</option>
+                        <option value="Pending Interview">Pending Interview</option>
+                        <option value="Interview Completed">Interview Completed</option>
                         <option value="Accepted">Accepted</option>
                         <option value="Rejected">Rejected</option>
                       </select>
@@ -642,14 +663,14 @@ export default function AdminApplicantsPage() {
                       <button
                         type="button"
                         onClick={() => openAcceptModal(viewApplicant)}
-                        disabled={viewApplicant.status === "Accepted"}
+                        disabled={["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)}
                         className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${
-                          viewApplicant.status === "Accepted"
+                          ["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)
                             ? "bg-[#e0e9e4] text-[#869b90] cursor-not-allowed"
                             : "bg-[#046241] text-white hover:bg-[#034d33]"
                         }`}
                       >
-                        {viewApplicant.status === "Accepted" ? "Accepted" : "Accept Applicant"}
+                        {["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status) ? "Accepted" : "Accept Applicant"}
                       </button>
                       <button
                         type="button"
@@ -675,6 +696,33 @@ export default function AdminApplicantsPage() {
                   </div>
 
                 </div>
+
+                {viewApplicantResults && viewApplicantResults.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-[#e0e9e4]">
+                    <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d] mb-4 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      AI Interview Transcript
+                    </h4>
+                    <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
+                      {viewApplicantResults.map((msg, idx) => (
+                        <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
+                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${
+                            msg.role === 'model' || msg.role === 'assistant'
+                              ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
+                              : 'bg-[#046241] text-white rounded-bl-sm'
+                          }`}>
+                            <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
+                              {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
+                            </p>
+                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
