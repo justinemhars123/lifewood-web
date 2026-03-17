@@ -103,6 +103,22 @@ export default function JoinUsPage() {
     setSubmitSuccess(false);
 
     try {
+      // Check if email already exists
+      const { data: existingApplicant, error: checkError } = await supabase
+        .from("applicants")
+        .select("id")
+        .ilike("email", form.email)
+        .maybeSingle();
+
+      if (checkError) {
+        throw new Error("Failed to verify email availability.");
+      }
+
+      if (existingApplicant) {
+        setSubmitError("this email is already been used");
+        setIsSubmitting(false);
+        return;
+      }
       let cvUrl = "";
       if (form.cvFile) {
         const fileExt = form.cvFile.name.split(".").pop();
