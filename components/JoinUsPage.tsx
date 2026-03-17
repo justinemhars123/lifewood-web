@@ -303,7 +303,7 @@ export default function JoinUsPage() {
                   <input
                     value={form.phone}
                     onChange={(event) => {
-                      const val = event.target.value.replace(/\D/g, "");
+                      const val = event.target.value.replace(/\D/g, "").slice(0, 10);
                       setForm((prev) => ({ ...prev, phone: val }));
                     }}
                     placeholder="912345678"
