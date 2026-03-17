@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-const GENDER_OPTIONS = ["Select gender", "Female", "Male", "Non-binary", "Prefer not to say"];
+const GENDER_OPTIONS = ["Select gender", "Female", "Male"];
 const POSITION_OPTIONS = [
   "Select position to add",
   "Casual Video Models (Video Data Collection)",
@@ -283,7 +283,10 @@ export default function JoinUsPage() {
                   <FieldLabel>Age</FieldLabel>
                   <input
                     value={form.age}
-                    onChange={(event) => setForm((prev) => ({ ...prev, age: event.target.value }))}
+                    onChange={(event) => {
+                      const val = event.target.value.replace(/\D/g, "");
+                      setForm((prev) => ({ ...prev, age: val }));
+                    }}
                     placeholder="e.g. 24"
                     inputMode="numeric"
                     className="w-full h-11 rounded-xl bg-white dark:bg-white/5 border border-[#dfe7e2] dark:border-white/10 px-4 text-[14px] text-[#0f2318] dark:text-white outline-none focus:border-[#046241]/60 dark:focus:border-[#c1ff00]/70"
@@ -299,7 +302,10 @@ export default function JoinUsPage() {
                   </span>
                   <input
                     value={form.phone}
-                    onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    onChange={(event) => {
+                      const val = event.target.value.replace(/\D/g, "");
+                      setForm((prev) => ({ ...prev, phone: val }));
+                    }}
                     placeholder="912345678"
                     inputMode="numeric"
                     className="flex-1 h-11 rounded-xl bg-white dark:bg-white/5 border border-[#dfe7e2] dark:border-white/10 px-4 text-[14px] text-[#0f2318] dark:text-white placeholder:text-[#1a3326]/45 dark:placeholder:text-white/35 outline-none focus:border-[#046241]/60 dark:focus:border-[#c1ff00]/70"
@@ -375,8 +381,8 @@ export default function JoinUsPage() {
                         alert("File exceeds maximum limit of 10MB");
                         return;
                       }
-                      setForm((prev) => ({ 
-                        ...prev, 
+                      setForm((prev) => ({
+                        ...prev,
                         cvName: file ? file.name : "",
                         cvFile: file || null
                       }));
