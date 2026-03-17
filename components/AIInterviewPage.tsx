@@ -12,7 +12,7 @@ interface Message {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 // Using direct REST API fetch to avoid Vite/Node module resolution issues with the @google/genai SDK in browser
-const API_KEY = 'AIzaSyBcHFFKmx6J8F2rNc4MYk82IzhGgvG0Upg';
+const API_KEY = 'AIzaSyC3b2iXBWxupH0sJyhaLxEUxAAihDdqt8Q';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
@@ -76,7 +76,7 @@ export default function AIInterviewPage() {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [interviewComplete, setInterviewComplete] = useState(false);
-  const [chatHistory, setChatHistory] = useState<{role: string, parts: {text: string}[]}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{ role: string, parts: { text: string }[] }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -92,7 +92,7 @@ export default function AIInterviewPage() {
     const initChat = async () => {
       setIsTyping(true);
       try {
-        const initialHistory: {role: string, parts: {text: string}[]}[] = [];
+        const initialHistory: { role: string, parts: { text: string }[] }[] = [];
         const payload = {
           systemInstruction: {
             role: "system",
@@ -120,7 +120,7 @@ export default function AIInterviewPage() {
           console.error("Gemini API Error Body:", errorBody);
           throw new Error(`API returned ${response.status}: ${errorBody}`);
         }
-        
+
         const data = await response.json();
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Hello. Are you ready to begin the interview?";
 
@@ -191,19 +191,19 @@ export default function AIInterviewPage() {
         console.error("Gemini API Error Body:", errorBody);
         throw new Error(`API returned ${response.status}: ${errorBody}`);
       }
-      
+
       const data = await response.json();
-      
+
       let aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that. Could you repeat?";
       let isDone = false;
-      
+
       if (aiResponseText.includes("[END_INTERVIEW]")) {
         isDone = true;
         aiResponseText = aiResponseText.replace("[END_INTERVIEW]", "").trim();
       }
 
       setMessages(prev => [
-        ...prev, 
+        ...prev,
         {
           id: Date.now().toString(),
           role: 'assistant',
@@ -216,7 +216,7 @@ export default function AIInterviewPage() {
         { role: "model", parts: [{ text: aiResponseText }] }
       ];
       setChatHistory(finalHistory);
-      
+
       if (isDone) {
         setInterviewComplete(true);
         if (applicantId) {
@@ -225,7 +225,7 @@ export default function AIInterviewPage() {
               role: item.role,
               text: item.parts[0].text
             }));
-            
+
             await supabase.from("interview_results").insert({
               applicant_id: applicantId,
               qa_transcript: formattedQa
@@ -243,7 +243,7 @@ export default function AIInterviewPage() {
     } catch (err) {
       console.error("Chat error:", err);
       setMessages(prev => [
-        ...prev, 
+        ...prev,
         {
           id: Date.now().toString(),
           role: 'assistant',
@@ -287,28 +287,27 @@ export default function AIInterviewPage() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-5 py-3.5 text-[14px] leading-[1.6] shadow-sm ${
-                  msg.role === 'user'
+                className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-5 py-3.5 text-[14px] leading-[1.6] shadow-sm ${msg.role === 'user'
                     ? 'bg-[#046241] text-white rounded-br-sm'
                     : 'bg-white dark:bg-[#1a2e24] border border-[#e0e9e4] dark:border-[#2a4538] text-[#163126] dark:text-white rounded-bl-sm'
-                }`}
+                  }`}
               >
                 {msg.content}
               </div>
             </motion.div>
           ))}
           {isTyping && (
-             <motion.div
-             initial={{ opacity: 0, y: 10 }}
-             animate={{ opacity: 1, y: 0 }}
-             className="flex justify-start"
-           >
-             <div className="bg-white dark:bg-[#1a2e24] border border-[#e0e9e4] dark:border-[#2a4538] rounded-2xl rounded-bl-sm px-5 py-3.5 flex gap-1.5 items-center">
-               <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-               <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-               <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-             </div>
-           </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-start"
+            >
+              <div className="bg-white dark:bg-[#1a2e24] border border-[#e0e9e4] dark:border-[#2a4538] rounded-2xl rounded-bl-sm px-5 py-3.5 flex gap-1.5 items-center">
+                <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-[#163126]/40 dark:bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </motion.div>
           )}
           <div ref={messagesEndRef} />
         </div>
