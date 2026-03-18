@@ -55,3 +55,36 @@ CREATE POLICY "Allow public cv uploads" ON storage.objects
 CREATE POLICY "Allow public cv reads" ON storage.objects
   FOR SELECT
   USING (bucket_id = 'cvs');
+
+-- 4. Create the `interview_results` table for AI interview transcripts and scores
+CREATE TABLE IF NOT EXISTS public.interview_results (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  applicant_id uuid NOT NULL REFERENCES public.applicants(id) ON DELETE CASCADE,
+  qa_transcript jsonb NOT NULL DEFAULT '[]'::jsonb,
+  interview_score integer,
+  evaluation_summary text,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.interview_results
+  ADD COLUMN IF NOT EXISTS qa_transcript jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.interview_results
+  ADD COLUMN IF NOT EXISTS interview_score integer;
+
+ALTER TABLE public.interview_results
+  ADD COLUMN IF NOT EXISTS evaluation_summary text;
+
+ALTER TABLE public.interview_results ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public interview result inserts" ON public.interview_results
+  FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated interview result read" ON public.interview_results
+  FOR SELECT
+  USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated interview result update" ON public.interview_results
+  FOR UPDATE
+  USING (auth.role() = 'authenticated');

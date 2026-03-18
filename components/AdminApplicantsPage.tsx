@@ -30,6 +30,16 @@ type Applicant = {
   created_at: string;
 };
 
+type InterviewTranscriptEntry = {
+  role: string;
+  text: string;
+};
+
+type InterviewResultMeta = {
+  interviewScore: number | null;
+  evaluationSummary: string;
+};
+
 const ADMIN_NAV_ITEMS = [
   { label: "Dashboard", path: "/admin/dashboard" },
   { label: "User Management", path: "/admin/users" },
@@ -66,6 +76,48 @@ function formatDate(isoValue?: string | null) {
   });
 }
 
+const SCORE_METADATA_ROLE = "system_score_meta";
+
+function parseInterviewResult(data: any): {
+  transcript: InterviewTranscriptEntry[];
+  meta: InterviewResultMeta;
+} {
+  const rawTranscript = Array.isArray(data?.qa_transcript) ? data.qa_transcript : [];
+  const metadataEntry = rawTranscript.find((entry: any) => entry?.role === SCORE_METADATA_ROLE);
+
+  let metadataFromTranscript: InterviewResultMeta = {
+    interviewScore: null,
+    evaluationSummary: "",
+  };
+
+  if (metadataEntry?.text) {
+    try {
+      const parsed = JSON.parse(metadataEntry.text);
+      metadataFromTranscript = {
+        interviewScore: typeof parsed?.interviewScore === "number" ? parsed.interviewScore : null,
+        evaluationSummary: typeof parsed?.evaluationSummary === "string" ? parsed.evaluationSummary : "",
+      };
+    } catch {
+      metadataFromTranscript = {
+        interviewScore: null,
+        evaluationSummary: "",
+      };
+    }
+  }
+
+  return {
+    transcript: rawTranscript.filter(
+      (entry: any) => entry?.role !== SCORE_METADATA_ROLE && typeof entry?.text === "string"
+    ),
+    meta: {
+      interviewScore: typeof data?.interview_score === "number" ? data.interview_score : metadataFromTranscript.interviewScore,
+      evaluationSummary: typeof data?.evaluation_summary === "string" && data.evaluation_summary.trim()
+        ? data.evaluation_summary
+        : metadataFromTranscript.evaluationSummary,
+    },
+  };
+}
+
 export default function AdminApplicantsPage() {
   const [user, setUser] = useState<AuthUser | null>(() => getAuthUser());
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/+$/, ""));
@@ -76,7 +128,9 @@ export default function AdminApplicantsPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewApplicant, setViewApplicant] = useState<Applicant | null>(null);
-  const [viewApplicantResults, setViewApplicantResults] = useState<{ role: string; text: string }[] | null>(null);
+  const [viewApplicantResults, setViewApplicantResults] = useState<InterviewTranscriptEntry[] | null>(null);
+  const [viewApplicantScore, setViewApplicantScore] = useState<number | null>(null);
+  const [viewApplicantEvaluationSummary, setViewApplicantEvaluationSummary] = useState("");
   const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
   const [acceptEmailModal, setAcceptEmailModal] = useState<Applicant | null>(null);
   const [rejectEmailModal, setRejectEmailModal] = useState<Applicant | null>(null);
@@ -196,15 +250,23 @@ export default function AdminApplicantsPage() {
     setViewApplicant(applicant);
     setPendingReviewId(applicant.status === "New" ? applicant.id : null);
     setViewApplicantResults(null);
+    setViewApplicantScore(null);
+    setViewApplicantEvaluationSummary("");
     try {
       const { data, error } = await supabase
         .from("interview_results")
-        .select("qa_transcript")
+        .select("*")
         .eq("applicant_id", applicant.id)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      if (data?.qa_transcript) {
-        setViewApplicantResults(data.qa_transcript);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const parsedResult = parseInterviewResult(data[0]);
+        setViewApplicantResults(parsedResult.transcript);
+        setViewApplicantScore(parsedResult.meta.interviewScore);
+        setViewApplicantEvaluationSummary(parsedResult.meta.evaluationSummary);
       }
     } catch (err) {
       console.log("No interview results found or error fetching.", err);
@@ -217,6 +279,9 @@ export default function AdminApplicantsPage() {
     }
     setViewApplicant(null);
     setPendingReviewId(null);
+    setViewApplicantResults(null);
+    setViewApplicantScore(null);
+    setViewApplicantEvaluationSummary("");
   };
 
   const confirmDelete = async () => {
@@ -694,28 +759,52 @@ export default function AdminApplicantsPage() {
 
                 </div>
 
-                {viewApplicantResults && viewApplicantResults.length > 0 && (
+                {(viewApplicantScore !== null || viewApplicantEvaluationSummary || (viewApplicantResults && viewApplicantResults.length > 0)) && (
                   <div className="mt-8 pt-6 border-t border-[#e0e9e4]">
-                    <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d] mb-4 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      AI Interview Transcript
-                    </h4>
-                    <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
-                      {viewApplicantResults.map((msg, idx) => (
-                        <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
-                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
-                              ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
-                              : 'bg-[#046241] text-white rounded-bl-sm'
-                            }`}>
-                            <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
-                              {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
-                            </p>
-                            <p className="whitespace-pre-wrap">{msg.text}</p>
+                    <div className="flex flex-col gap-4">
+                      {(viewApplicantScore !== null || viewApplicantEvaluationSummary) && (
+                        <div className="rounded-xl border border-[#d7e8df] bg-[linear-gradient(135deg,#f7fbf9_0%,#edf7f1_100%)] p-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]">AI Interview Score</p>
+                              <h4 className="mt-1 text-[28px] leading-none font-black text-[#10261d]">
+                                {viewApplicantScore !== null ? `${viewApplicantScore}/100` : "Pending"}
+                              </h4>
+                            </div>
+                            {viewApplicantEvaluationSummary && (
+                              <p className="max-w-2xl text-[13px] leading-[1.7] text-[#1a3326]/78">
+                                {viewApplicantEvaluationSummary}
+                              </p>
+                            )}
                           </div>
                         </div>
-                      ))}
+                      )}
+
+                      {viewApplicantResults && viewApplicantResults.length > 0 && (
+                        <>
+                          <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d] flex items-center gap-2">
+                            <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                            AI Interview Transcript
+                          </h4>
+                          <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
+                            {viewApplicantResults.map((msg, idx) => (
+                              <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
+                                    ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
+                                    : 'bg-[#046241] text-white rounded-bl-sm'
+                                  }`}>
+                                  <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
+                                    {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
+                                  </p>
+                                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

@@ -9,11 +9,31 @@ interface Message {
   content: string;
 }
 
-const EASE = [0.16, 1, 0.3, 1] as const;
+interface TranscriptEntry {
+  role: string;
+  text: string;
+}
 
-// Using direct REST API fetch to avoid Vite/Node module resolution issues with the @google/genai SDK in browser
-const API_KEY = 'AIzaSyD1zHULoGnvkw0Yu3ju72qY3VOvxKxX3AA';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+interface InterviewEvaluation {
+  score: number;
+  summary: string;
+}
+
+const EASE = [0.16, 1, 0.3, 1] as const;
+const INTERVIEW_BOOTSTRAP_PROMPT = "Please begin the interview by introducing yourself according to your instructions.";
+const SCORE_METADATA_ROLE = "system_score_meta";
+
+// This supports either the standard Vite public env var or the existing Vercel build-time variable.
+const API_KEY = (
+  import.meta.env.VITE_GEMINI_API_KEY ||
+  process.env.GEMINI_API_KEY ||
+  process.env.API_KEY ||
+  ""
+).trim();
+const API_URL = API_KEY
+  ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(API_KEY)}`
+  : "";
+const MISSING_API_KEY_MESSAGE = "The AI interview is not configured yet. Add a Gemini API key in Vercel and redeploy the site.";
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
 
@@ -70,6 +90,168 @@ IMPORTANT BEHAVIOR
 • If the applicant asks unrelated questions, politely redirect them back to the interview.
 • Your primary role is to conduct the interview until completion.`;
 
+const SCORING_SYSTEM_INSTRUCTION = `You are an AI interview evaluator for a recruitment platform.
+
+Review only the applicant's answers from a completed 3-question interview.
+Score the applicant from 1 to 100 based on:
+1. Fit for the role based on relevance of the answers
+2. Appropriateness and completeness of the answers
+3. Professionalism, clarity, and communication quality
+
+Scoring guidance:
+- 90-100: Excellent, highly relevant, polished, and professional
+- 75-89: Strong and suitable, with clear and professional answers
+- 60-74: Acceptable but somewhat generic, incomplete, or uneven
+- 40-59: Weak relevance, weak clarity, or unprofessional tone
+- 1-39: Very poor, irrelevant, inappropriate, or extremely unclear
+
+Return valid JSON only using this exact shape:
+{"score": 84, "summary": "Short summary mentioning fit, appropriateness, and professionalism."}`;
+
+function clampScore(score: number) {
+  return Math.max(1, Math.min(100, Math.round(score)));
+}
+
+function formatTranscript(history: { role: string; parts: { text: string }[] }[]): TranscriptEntry[] {
+  return history.map((item) => ({
+    role: item.role,
+    text: item.parts[0]?.text || "",
+  }));
+}
+
+function getApplicantAnswers(transcript: TranscriptEntry[]) {
+  return transcript.filter(
+    (entry) => entry.role === "user" && entry.text.trim() && entry.text !== INTERVIEW_BOOTSTRAP_PROMPT
+  );
+}
+
+function buildLocalInterviewEvaluation(transcript: TranscriptEntry[]): InterviewEvaluation {
+  const answers = getApplicantAnswers(transcript).map((entry) => entry.text);
+  const combinedAnswers = answers.join(" ");
+  const words = combinedAnswers.match(/\b[\w'-]+\b/g) || [];
+  const totalWords = words.length;
+  const averageWords = answers.length ? totalWords / answers.length : 0;
+
+  const fitKeywords = ["experience", "skills", "background", "project", "team", "role", "position", "customer", "data", "operations", "support"];
+  const problemSolvingKeywords = ["problem", "challenge", "solve", "solved", "solution", "resolved", "improved", "approach", "result", "outcome"];
+  const professionalismKeywords = ["professional", "responsible", "collaborated", "communicated", "managed", "delivered", "organized", "reliable"];
+
+  const lowerContent = combinedAnswers.toLowerCase();
+  const fitHits = fitKeywords.filter((keyword) => lowerContent.includes(keyword)).length;
+  const problemHits = problemSolvingKeywords.filter((keyword) => lowerContent.includes(keyword)).length;
+  const professionalismHits = professionalismKeywords.filter((keyword) => lowerContent.includes(keyword)).length;
+  const shortAnswerCount = answers.filter((answer) => (answer.match(/\b[\w'-]+\b/g) || []).length < 8).length;
+
+  let score = 35;
+  score += Math.min(20, totalWords * 0.22);
+  score += Math.min(15, averageWords * 0.4);
+  score += Math.min(12, fitHits * 3);
+  score += Math.min(10, problemHits * 2.5);
+  score += Math.min(8, professionalismHits * 2);
+  score -= shortAnswerCount * 6;
+
+  if (answers.length < 3) score -= 12;
+
+  const finalScore = clampScore(score);
+
+  let summary = "Responses were recorded successfully.";
+  if (finalScore >= 90) {
+    summary = "Excellent interview performance with strong role fit, well-developed answers, and a highly professional communication style.";
+  } else if (finalScore >= 75) {
+    summary = "Strong interview performance with relevant answers, appropriate detail, and a professional tone.";
+  } else if (finalScore >= 60) {
+    summary = "Moderate interview performance with acceptable fit, but some answers could be more specific or polished.";
+  } else if (finalScore >= 40) {
+    summary = "Below-average interview performance because the answers were limited in relevance, depth, or professionalism.";
+  } else {
+    summary = "Weak interview performance due to unclear, incomplete, or poorly aligned answers.";
+  }
+
+  return {
+    score: finalScore,
+    summary,
+  };
+}
+
+function parseInterviewEvaluation(rawText: string): InterviewEvaluation | null {
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (typeof parsed?.score !== "number" || typeof parsed?.summary !== "string") {
+      return null;
+    }
+
+    return {
+      score: clampScore(parsed.score),
+      summary: parsed.summary.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function generateInterviewEvaluation(transcript: TranscriptEntry[]): Promise<InterviewEvaluation> {
+  const answers = getApplicantAnswers(transcript);
+  const fallbackEvaluation = buildLocalInterviewEvaluation(transcript);
+
+  if (!answers.length) {
+    return fallbackEvaluation;
+  }
+
+  try {
+    const payload = {
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: SCORING_SYSTEM_INSTRUCTION }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{
+            text: `Evaluate this applicant interview transcript and return the JSON score.\n\n${JSON.stringify(answers, null, 2)}`,
+          }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+      },
+    };
+
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Scoring API returned ${response.status}: ${errorBody}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    return parseInterviewEvaluation(responseText) || fallbackEvaluation;
+  } catch (error) {
+    console.error("Failed to generate interview score:", error);
+    return fallbackEvaluation;
+  }
+}
+
+function buildStoredTranscript(transcript: TranscriptEntry[], evaluation: InterviewEvaluation): TranscriptEntry[] {
+  return [
+    {
+      role: SCORE_METADATA_ROLE,
+      text: JSON.stringify({
+        interviewScore: evaluation.score,
+        evaluationSummary: evaluation.summary,
+      }),
+    },
+    ...transcript,
+  ];
+}
+
 export default function AIInterviewPage() {
   const applicantId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -92,7 +274,10 @@ export default function AIInterviewPage() {
     const initChat = async () => {
       setIsTyping(true);
       try {
-        const initialHistory: { role: string, parts: { text: string }[] }[] = [];
+        if (!API_URL) {
+          throw new Error(MISSING_API_KEY_MESSAGE);
+        }
+
         const payload = {
           systemInstruction: {
             role: "system",
@@ -101,7 +286,7 @@ export default function AIInterviewPage() {
           contents: [
             {
               role: "user",
-              parts: [{ text: "Please begin the interview by introducing yourself according to your instructions." }]
+              parts: [{ text: INTERVIEW_BOOTSTRAP_PROMPT }]
             }
           ],
           generationConfig: {
@@ -131,7 +316,7 @@ export default function AIInterviewPage() {
         }]);
 
         setChatHistory([
-          { role: "user", parts: [{ text: "Please begin the interview by introducing yourself according to your instructions." }] },
+          { role: "user", parts: [{ text: INTERVIEW_BOOTSTRAP_PROMPT }] },
           { role: "model", parts: [{ text: responseText }] }
         ]);
 
@@ -140,7 +325,9 @@ export default function AIInterviewPage() {
         setMessages([{
           id: Date.now().toString(),
           role: 'assistant',
-          content: "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again."
+          content: err?.message === MISSING_API_KEY_MESSAGE
+            ? MISSING_API_KEY_MESSAGE
+            : "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again."
         }]);
       } finally {
         setIsTyping(false);
@@ -164,6 +351,10 @@ export default function AIInterviewPage() {
     setIsTyping(true);
 
     try {
+      if (!API_URL) {
+        throw new Error(MISSING_API_KEY_MESSAGE);
+      }
+
       const newHistory = [
         ...chatHistory,
         { role: "user", parts: [{ text: userText }] }
@@ -220,34 +411,51 @@ export default function AIInterviewPage() {
       if (isDone) {
         setInterviewComplete(true);
         if (applicantId) {
-          try {
-            const formattedQa = finalHistory.map(item => ({
-              role: item.role,
-              text: item.parts[0].text
-            }));
+          const formattedQa = formatTranscript(finalHistory);
+          const evaluation = await generateInterviewEvaluation(formattedQa);
+          const storedTranscript = buildStoredTranscript(formattedQa, evaluation);
 
+          try {
             await supabase.from("interview_results").insert({
               applicant_id: applicantId,
-              qa_transcript: formattedQa
+              qa_transcript: storedTranscript,
+              interview_score: evaluation.score,
+              evaluation_summary: evaluation.summary,
             });
+          } catch (dbErr) {
+            console.error("Failed to save scored interview result, retrying with transcript fallback:", dbErr);
+            try {
+              await supabase.from("interview_results").insert({
+                applicant_id: applicantId,
+                qa_transcript: storedTranscript,
+              });
+            } catch (fallbackErr) {
+              console.error("Failed to save interview transcript:", fallbackErr);
+            }
+          }
 
+          try {
             await supabase
               .from("applicants")
               .update({ status: "Interview Completed" })
               .eq("id", applicantId);
-          } catch (dbErr) {
-            console.error("Failed to save interview transcript:", dbErr);
+          } catch (statusErr) {
+            console.error("Failed to update applicant interview status:", statusErr);
           }
         }
       }
     } catch (err) {
       console.error("Chat error:", err);
+      const errorMessage = err instanceof Error && err.message === MISSING_API_KEY_MESSAGE
+        ? MISSING_API_KEY_MESSAGE
+        : "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again.";
+
       setMessages(prev => [
         ...prev,
         {
           id: Date.now().toString(),
           role: 'assistant',
-          content: "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again.",
+          content: errorMessage,
         }
       ]);
     } finally {
