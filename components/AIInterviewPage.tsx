@@ -22,18 +22,8 @@ interface InterviewEvaluation {
 const EASE = [0.16, 1, 0.3, 1] as const;
 const INTERVIEW_BOOTSTRAP_PROMPT = "Please begin the interview by introducing yourself according to your instructions.";
 const SCORE_METADATA_ROLE = "system_score_meta";
-
-// This supports either the standard Vite public env var or the existing Vercel build-time variable.
-const API_KEY = (
-  import.meta.env.VITE_GEMINI_API_KEY ||
-  process.env.GEMINI_API_KEY ||
-  process.env.API_KEY ||
-  ""
-).trim();
-const API_URL = API_KEY
-  ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(API_KEY)}`
-  : "";
-const MISSING_API_KEY_MESSAGE = "The AI interview is not configured yet. Add a Gemini API key in Vercel and redeploy the site.";
+const GEMINI_PROXY_URL = "/api/gemini";
+const AI_UNAVAILABLE_MESSAGE = "The AI interview is temporarily unavailable. Please try again later.";
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
 
@@ -192,6 +182,41 @@ function parseInterviewEvaluation(rawText: string): InterviewEvaluation | null {
   }
 }
 
+async function callGeminiApi(payload: unknown) {
+  const response = await fetch(GEMINI_PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const responseText = await response.text();
+  let data: any = null;
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message ||
+      data?.message ||
+      AI_UNAVAILABLE_MESSAGE;
+
+    console.error("Gemini proxy error:", response.status, data || responseText);
+    throw new Error(errorMessage);
+  }
+
+  if (!data) {
+    throw new Error(AI_UNAVAILABLE_MESSAGE);
+  }
+
+  return data;
+}
+
 async function generateInterviewEvaluation(transcript: TranscriptEntry[]): Promise<InterviewEvaluation> {
   const answers = getApplicantAnswers(transcript);
   const fallbackEvaluation = buildLocalInterviewEvaluation(transcript);
@@ -219,18 +244,7 @@ async function generateInterviewEvaluation(transcript: TranscriptEntry[]): Promi
       },
     };
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Scoring API returned ${response.status}: ${errorBody}`);
-    }
-
-    const data = await response.json();
+    const data = await callGeminiApi(payload);
     const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     return parseInterviewEvaluation(responseText) || fallbackEvaluation;
   } catch (error) {
@@ -274,10 +288,6 @@ export default function AIInterviewPage() {
     const initChat = async () => {
       setIsTyping(true);
       try {
-        if (!API_URL) {
-          throw new Error(MISSING_API_KEY_MESSAGE);
-        }
-
         const payload = {
           systemInstruction: {
             role: "system",
@@ -294,19 +304,7 @@ export default function AIInterviewPage() {
           }
         };
 
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error("Gemini API Error Body:", errorBody);
-          throw new Error(`API returned ${response.status}: ${errorBody}`);
-        }
-
-        const data = await response.json();
+        const data = await callGeminiApi(payload);
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Hello. Are you ready to begin the interview?";
 
         setMessages([{
@@ -325,9 +323,7 @@ export default function AIInterviewPage() {
         setMessages([{
           id: Date.now().toString(),
           role: 'assistant',
-          content: err?.message === MISSING_API_KEY_MESSAGE
-            ? MISSING_API_KEY_MESSAGE
-            : "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again."
+          content: err?.message || AI_UNAVAILABLE_MESSAGE
         }]);
       } finally {
         setIsTyping(false);
@@ -351,10 +347,6 @@ export default function AIInterviewPage() {
     setIsTyping(true);
 
     try {
-      if (!API_URL) {
-        throw new Error(MISSING_API_KEY_MESSAGE);
-      }
-
       const newHistory = [
         ...chatHistory,
         { role: "user", parts: [{ text: userText }] }
@@ -371,19 +363,7 @@ export default function AIInterviewPage() {
         }
       };
 
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error("Gemini API Error Body:", errorBody);
-        throw new Error(`API returned ${response.status}: ${errorBody}`);
-      }
-
-      const data = await response.json();
+      const data = await callGeminiApi(payload);
 
       let aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that. Could you repeat?";
       let isDone = false;
@@ -446,9 +426,9 @@ export default function AIInterviewPage() {
       }
     } catch (err) {
       console.error("Chat error:", err);
-      const errorMessage = err instanceof Error && err.message === MISSING_API_KEY_MESSAGE
-        ? MISSING_API_KEY_MESSAGE
-        : "I apologize, but I am having trouble connecting to the system. Please wait a moment and try again.";
+      const errorMessage = err instanceof Error && err.message
+        ? err.message
+        : AI_UNAVAILABLE_MESSAGE;
 
       setMessages(prev => [
         ...prev,
