@@ -12,7 +12,7 @@ interface Message {
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 // Using direct REST API fetch to avoid Vite/Node module resolution issues with the @google/genai SDK in browser
-const API_KEY = 'AIzaSyC3b2iXBWxupH0sJyhaLxEUxAAihDdqt8Q';
+const API_KEY = 'AIzaSyD1zHULoGnvkw0Yu3ju72qY3VOvxKxX3AA';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
@@ -288,8 +288,8 @@ export default function AIInterviewPage() {
             >
               <div
                 className={`max-w-[85%] md:max-w-[70%] rounded-2xl px-5 py-3.5 text-[14px] leading-[1.6] shadow-sm ${msg.role === 'user'
-                    ? 'bg-[#046241] text-white rounded-br-sm'
-                    : 'bg-white dark:bg-[#1a2e24] border border-[#e0e9e4] dark:border-[#2a4538] text-[#163126] dark:text-white rounded-bl-sm'
+                  ? 'bg-[#046241] text-white rounded-br-sm'
+                  : 'bg-white dark:bg-[#1a2e24] border border-[#e0e9e4] dark:border-[#2a4538] text-[#163126] dark:text-white rounded-bl-sm'
                   }`}
               >
                 {msg.content}

@@ -202,7 +202,7 @@ export default function AdminApplicantsPage() {
         .select("qa_transcript")
         .eq("applicant_id", applicant.id)
         .single();
-      
+
       if (data?.qa_transcript) {
         setViewApplicantResults(data.qa_transcript);
       }
@@ -642,11 +642,10 @@ export default function AdminApplicantsPage() {
                             ? "Status is locked after a final decision."
                             : undefined
                         }
-                        className={`h-9 rounded-lg border border-[#d8e5de] bg-white px-3 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${
-                          ["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
+                        className={`h-9 rounded-lg border border-[#d8e5de] bg-white px-3 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
                             ? "opacity-70 cursor-not-allowed"
                             : ""
-                        }`}
+                          }`}
                       >
                         <option value="New">New</option>
                         <option value="Reviewed">Reviewed</option>
@@ -664,11 +663,10 @@ export default function AdminApplicantsPage() {
                         type="button"
                         onClick={() => openAcceptModal(viewApplicant)}
                         disabled={["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${
-                          ["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)
+                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)
                             ? "bg-[#e0e9e4] text-[#869b90] cursor-not-allowed"
                             : "bg-[#046241] text-white hover:bg-[#034d33]"
-                        }`}
+                          }`}
                       >
                         {["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status) ? "Accepted" : "Accept Applicant"}
                       </button>
@@ -676,11 +674,10 @@ export default function AdminApplicantsPage() {
                         type="button"
                         onClick={() => openRejectModal(viewApplicant)}
                         disabled={viewApplicant.status === "Rejected" || viewApplicant.status === "Accepted"}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${
-                          viewApplicant.status === "Rejected" || viewApplicant.status === "Accepted"
+                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${viewApplicant.status === "Rejected" || viewApplicant.status === "Accepted"
                             ? "bg-red-600/10 text-red-600/60 cursor-not-allowed"
                             : "bg-red-600 text-white hover:bg-red-700"
-                        }`}
+                          }`}
                       >
                         {viewApplicant.status === "Rejected" ? "Rejected" : "Reject Applicant"}
                       </button>
@@ -708,11 +705,10 @@ export default function AdminApplicantsPage() {
                     <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
                       {viewApplicantResults.map((msg, idx) => (
                         <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
-                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${
-                            msg.role === 'model' || msg.role === 'assistant'
+                          <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
                               ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
                               : 'bg-[#046241] text-white rounded-bl-sm'
-                          }`}>
+                            }`}>
                             <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
                               {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
                             </p>
@@ -935,11 +931,10 @@ export default function AdminApplicantsPage() {
             <div className="fixed inset-0 z-[110] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="w-full max-w-[400px] rounded-2xl border border-[#dbe7e1] bg-white p-6 shadow-2xl">
                 <div className="flex flex-col items-center text-center">
-                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${
-                    successModalStatus === "Accepted"
+                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted"
                       ? "bg-[#f3f8f5] border-[#d8e5de] text-[#046241]"
                       : "bg-[#fff5f5] border-[#f2d9d9] text-red-600"
-                  }`}>
+                    }`}>
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -956,11 +951,10 @@ export default function AdminApplicantsPage() {
                   <button
                     type="button"
                     onClick={() => setSuccessModalStatus(null)}
-                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${
-                      successModalStatus === "Accepted"
+                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted"
                         ? "bg-[#046241] hover:bg-[#034d33]"
                         : "bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
-                    }`}
+                      }`}
                   >
                     Done
                   </button>
