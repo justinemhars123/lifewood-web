@@ -36,6 +36,13 @@ CREATE POLICY "Allow authenticated update" ON public.applicants
   FOR UPDATE
   USING (auth.role() = 'authenticated');
 
+-- Allow interview links to mark an applicant as completed after the public AI interview finishes.
+-- If you later move interview writes to a secure server function, you can remove this policy.
+CREATE POLICY "Allow public interview completion updates" ON public.applicants
+  FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
 CREATE POLICY "Allow authenticated delete" ON public.applicants
   FOR DELETE
   USING (auth.role() = 'authenticated');
@@ -88,3 +95,9 @@ CREATE POLICY "Allow authenticated interview result read" ON public.interview_re
 CREATE POLICY "Allow authenticated interview result update" ON public.interview_results
   FOR UPDATE
   USING (auth.role() = 'authenticated');
+
+-- Allow the public interview link to refresh transcript/score data if the same applicant retakes the interview.
+CREATE POLICY "Allow public interview result updates" ON public.interview_results
+  FOR UPDATE
+  USING (true)
+  WITH CHECK (true);

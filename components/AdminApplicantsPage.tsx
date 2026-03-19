@@ -160,32 +160,182 @@ export default function AdminApplicantsPage() {
   const isRootAdmin = isSuperAdmin(user);
   const activePath = currentPath === "/admin" ? "/admin/dashboard" : currentPath;
 
-  const fetchApplicants = async () => {
-    setLoading(true);
+  const markApplicantCompletedLocally = (applicantId: string) => {
+    setApplicants((prev) =>
+      prev.map((entry) =>
+        entry.id === applicantId && entry.status === "Pending Interview"
+          ? { ...entry, status: "Interview Completed" }
+          : entry
+      )
+    );
+
+    setViewApplicant((prev) =>
+      prev && prev.id === applicantId && prev.status === "Pending Interview"
+        ? { ...prev, status: "Interview Completed" }
+        : prev
+    );
+  };
+
+  const syncApplicantInterviewCompleted = async (applicantId: string) => {
+    markApplicantCompletedLocally(applicantId);
+
+    const { error } = await supabase
+      .from("applicants")
+      .update({ status: "Interview Completed" })
+      .eq("id", applicantId)
+      .eq("status", "Pending Interview");
+
+    if (error) {
+      console.error("Failed to sync applicant interview completion status:", error);
+    }
+  };
+
+  const fetchApplicants = async (showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
     setError("");
 
     try {
-      const { data, error } = await supabase
+      const { data: applicantsData, error: applicantsError } = await supabase
         .from("applicants")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setApplicants(data || []);
+      if (applicantsError) throw applicantsError;
+
+      const { data: interviewResultsData, error: interviewResultsError } = await supabase
+        .from("interview_results")
+        .select("applicant_id, created_at");
+      if (interviewResultsError) {
+        console.warn("Unable to load interview_results during applicants refresh:", interviewResultsError);
+      }
+
+      const applicantIdsWithResults = new Set(
+        ((interviewResultsError ? [] : interviewResultsData) || [])
+          .map((entry: any) => entry.applicant_id)
+          .filter((value: string | null | undefined) => Boolean(value))
+      );
+
+      const idsToSync = (applicantsData || [])
+        .filter((entry: any) =>
+          applicantIdsWithResults.has(entry.id) &&
+          entry.status === "Pending Interview"
+        )
+        .map((entry: any) => entry.id);
+
+      const normalizedApplicants = (applicantsData || []).map((applicant: any) => {
+        const hasInterviewResults = applicantIdsWithResults.has(applicant.id);
+        return {
+          ...applicant,
+          status:
+            hasInterviewResults && applicant.status === "Pending Interview"
+              ? "Interview Completed"
+              : applicant.status,
+        };
+      });
+
+      setApplicants(normalizedApplicants || []);
+
+      if (idsToSync.length > 0) {
+        void supabase
+          .from("applicants")
+          .update({ status: "Interview Completed" })
+          .in("id", idsToSync)
+          .then(({ error: syncError }) => {
+            if (syncError) {
+              console.error("Failed to persist interview-completed statuses:", syncError);
+            }
+          });
+      }
     } catch (err: any) {
-      if (err.message && err.message.includes("does not exist")) {
-        setError("Applicants table does not exist. Please run the SQL setup script.");
+      const rawMessage = err?.message || "Failed to load applicants.";
+
+      if (rawMessage.includes("applicants")) {
+        setError("The `applicants` table is missing in the connected Supabase project. Run the SQL setup script in the same project used by this deployment.");
+      } else if (rawMessage.includes("does not exist")) {
+        setError(rawMessage);
       } else {
-        setError(err.message || "Failed to load applicants.");
+        setError(rawMessage);
       }
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const loadApplicantInterviewData = async (applicantId: string) => {
+    setViewApplicantResults(null);
+    setViewApplicantScore(null);
+    setViewApplicantEvaluationSummary("");
+
+    try {
+      const { data, error } = await supabase
+        .from("interview_results")
+        .select("*")
+        .eq("applicant_id", applicantId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const parsedResult = parseInterviewResult(data[0]);
+        setViewApplicantResults(parsedResult.transcript);
+        setViewApplicantScore(parsedResult.meta.interviewScore);
+        setViewApplicantEvaluationSummary(parsedResult.meta.evaluationSummary);
+
+        const currentApplicant = applicants.find((entry) => entry.id === applicantId);
+        if (currentApplicant?.status === "Pending Interview") {
+          void syncApplicantInterviewCompleted(applicantId);
+        }
+      }
+    } catch (err) {
+      console.log("No interview results found or error fetching.", err);
     }
   };
 
   useEffect(() => {
     if (!canManage) return;
     void fetchApplicants();
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!canManage) return;
+
+    const pollInterval = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+
+      void fetchApplicants(false);
+
+      if (viewApplicant?.id) {
+        void loadApplicantInterviewData(viewApplicant.id);
+      }
+    }, 5000);
+
+    return () => {
+      window.clearInterval(pollInterval);
+    };
+  }, [canManage, viewApplicant?.id]);
+
+  useEffect(() => {
+    if (!canManage) return;
+
+    const applicantsChannel = supabase
+      .channel("admin-applicants-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "applicants" },
+        () => {
+          void fetchApplicants(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(applicantsChannel);
+    };
   }, [canManage]);
 
   useEffect(() => {
@@ -199,6 +349,51 @@ export default function AdminApplicantsPage() {
     url.searchParams.delete("applicantId");
     window.history.replaceState({}, "", url.pathname + url.search);
   }, [loading, autoOpenApplicantId, applicants]);
+
+  useEffect(() => {
+    if (!viewApplicant) return;
+
+    const latestApplicant = applicants.find((entry) => entry.id === viewApplicant.id);
+
+    if (!latestApplicant) return;
+
+    if (
+      latestApplicant.status !== viewApplicant.status ||
+      latestApplicant.first_name !== viewApplicant.first_name ||
+      latestApplicant.last_name !== viewApplicant.last_name ||
+      latestApplicant.email !== viewApplicant.email ||
+      latestApplicant.position !== viewApplicant.position ||
+      latestApplicant.cv_url !== viewApplicant.cv_url ||
+      latestApplicant.cv_name !== viewApplicant.cv_name
+    ) {
+      setViewApplicant(latestApplicant);
+    }
+  }, [applicants, viewApplicant]);
+
+  useEffect(() => {
+    if (!canManage || !viewApplicant?.id) return;
+
+    const interviewResultsChannel = supabase
+      .channel(`admin-interview-results-${viewApplicant.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "interview_results",
+          filter: `applicant_id=eq.${viewApplicant.id}`,
+        },
+        () => {
+          void loadApplicantInterviewData(viewApplicant.id);
+          void fetchApplicants(false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(interviewResultsChannel);
+    };
+  }, [canManage, viewApplicant?.id]);
 
   const roleOptions = useMemo(() => {
     const uniqueRoles = new Set<string>();
@@ -249,28 +444,7 @@ export default function AdminApplicantsPage() {
   const openApplicantDetails = async (applicant: Applicant) => {
     setViewApplicant(applicant);
     setPendingReviewId(applicant.status === "New" ? applicant.id : null);
-    setViewApplicantResults(null);
-    setViewApplicantScore(null);
-    setViewApplicantEvaluationSummary("");
-    try {
-      const { data, error } = await supabase
-        .from("interview_results")
-        .select("*")
-        .eq("applicant_id", applicant.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        const parsedResult = parseInterviewResult(data[0]);
-        setViewApplicantResults(parsedResult.transcript);
-        setViewApplicantScore(parsedResult.meta.interviewScore);
-        setViewApplicantEvaluationSummary(parsedResult.meta.evaluationSummary);
-      }
-    } catch (err) {
-      console.log("No interview results found or error fetching.", err);
-    }
+    await loadApplicantInterviewData(applicant.id);
   };
 
   const closeApplicantDetails = () => {

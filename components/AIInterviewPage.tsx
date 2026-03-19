@@ -266,6 +266,71 @@ function buildStoredTranscript(transcript: TranscriptEntry[], evaluation: Interv
   ];
 }
 
+async function saveInterviewResult(
+  applicantId: string,
+  storedTranscript: TranscriptEntry[],
+  evaluation: InterviewEvaluation
+) {
+  const fullPayload = {
+    applicant_id: applicantId,
+    qa_transcript: storedTranscript,
+    interview_score: evaluation.score,
+    evaluation_summary: evaluation.summary,
+  };
+
+  const { error: insertError } = await supabase
+    .from("interview_results")
+    .insert(fullPayload);
+
+  if (!insertError) return;
+
+  console.error("Failed to insert scored interview result, retrying as update:", insertError);
+
+  const { error: updateError } = await supabase
+    .from("interview_results")
+    .update({
+      qa_transcript: storedTranscript,
+      interview_score: evaluation.score,
+      evaluation_summary: evaluation.summary,
+    })
+    .eq("applicant_id", applicantId);
+
+  if (!updateError) return;
+
+  console.error("Failed to update scored interview result, retrying with transcript-only payload:", updateError);
+
+  const { error: transcriptOnlyInsertError } = await supabase
+    .from("interview_results")
+    .insert({
+      applicant_id: applicantId,
+      qa_transcript: storedTranscript,
+    });
+
+  if (!transcriptOnlyInsertError) return;
+
+  const { error: transcriptOnlyUpdateError } = await supabase
+    .from("interview_results")
+    .update({
+      qa_transcript: storedTranscript,
+    })
+    .eq("applicant_id", applicantId);
+
+  if (transcriptOnlyUpdateError) {
+    throw transcriptOnlyUpdateError;
+  }
+}
+
+async function markApplicantInterviewCompleted(applicantId: string) {
+  const { error } = await supabase
+    .from("applicants")
+    .update({ status: "Interview Completed" })
+    .eq("id", applicantId);
+
+  if (error) {
+    throw error;
+  }
+}
+
 export default function AIInterviewPage() {
   const applicantId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
   const [messages, setMessages] = useState<Message[]>([]);
@@ -396,29 +461,13 @@ export default function AIInterviewPage() {
           const storedTranscript = buildStoredTranscript(formattedQa, evaluation);
 
           try {
-            await supabase.from("interview_results").insert({
-              applicant_id: applicantId,
-              qa_transcript: storedTranscript,
-              interview_score: evaluation.score,
-              evaluation_summary: evaluation.summary,
-            });
+            await saveInterviewResult(applicantId, storedTranscript, evaluation);
           } catch (dbErr) {
-            console.error("Failed to save scored interview result, retrying with transcript fallback:", dbErr);
-            try {
-              await supabase.from("interview_results").insert({
-                applicant_id: applicantId,
-                qa_transcript: storedTranscript,
-              });
-            } catch (fallbackErr) {
-              console.error("Failed to save interview transcript:", fallbackErr);
-            }
+            console.error("Failed to save interview transcript:", dbErr);
           }
 
           try {
-            await supabase
-              .from("applicants")
-              .update({ status: "Interview Completed" })
-              .eq("id", applicantId);
+            await markApplicantInterviewCompleted(applicantId);
           } catch (statusErr) {
             console.error("Failed to update applicant interview status:", statusErr);
           }
