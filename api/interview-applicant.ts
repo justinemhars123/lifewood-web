@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { data, error } = await supabase
       .from("applicants")
-      .select("first_name, last_name")
+      .select("first_name, last_name, status, email")
       .eq("id", applicantId)
       .maybeSingle();
 
@@ -44,13 +44,33 @@ export default async function handler(req: any, res: any) {
       throw error;
     }
 
+    const { data: interviewResult, error: interviewResultError } = await supabase
+      .from("interview_results")
+      .select("id")
+      .eq("applicant_id", applicantId)
+      .limit(1)
+      .maybeSingle();
+
+    if (interviewResultError) {
+      throw interviewResultError;
+    }
+
     const firstName = String(data?.first_name || "").trim();
     const lastName = String(data?.last_name || "").trim();
     const applicantName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    const status = String(data?.status || "").trim();
+    const email = String(data?.email || "").trim();
+    const interviewLocked =
+      status === "Interview Completed" ||
+      status === "Accepted" ||
+      Boolean(interviewResult?.id);
 
     return res.status(200).json({
       applicantName,
       firstName,
+      email,
+      status,
+      interviewLocked,
     });
   } catch (error: any) {
     console.error("Interview applicant lookup failed:", error);

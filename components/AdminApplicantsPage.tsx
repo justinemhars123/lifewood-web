@@ -12,6 +12,10 @@ import {
 import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_cpyba2r";
+const EMAILJS_SCREENING_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_SCREENING_TEMPLATE_ID || "template_qbegp0m";
+const EMAILJS_DECISION_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_DECISION_TEMPLATE_ID || "";
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "bbHE7xH3WprnKw8i8";
 
 type Applicant = {
   id: string;
@@ -168,6 +172,20 @@ export default function AdminApplicantsPage() {
     viewApplicantEvaluationSummary.trim().length > 0;
   const isInitialInterviewResultLoad = isLoadingInterviewResults && !hasInterviewResultData;
   const isRefreshingInterviewResults = isLoadingInterviewResults && hasInterviewResultData;
+
+  const getPrimaryApplicantActionLabel = (status: string) => {
+    if (status === "Interview Completed") return "Accept Applicant";
+    if (status === "Pending Interview") return "AI Screening Sent";
+    if (status === "Accepted") return "Accepted";
+    if (status === "Rejected") return "Rejected";
+    return "Send Email for AI Screening";
+  };
+
+  const canSendAiScreeningEmail = (status: string) => ["New", "Reviewed"].includes(status);
+  const canAcceptCompletedApplicant = (status: string) => status === "Interview Completed";
+  const isPrimaryApplicantActionEnabled = (status: string) =>
+    canSendAiScreeningEmail(status) || canAcceptCompletedApplicant(status);
+  const canRejectAfterInterview = (status: string) => status === "Interview Completed";
 
   const markApplicantCompletedLocally = (applicantId: string) => {
     setApplicants((prev) =>
@@ -506,15 +524,42 @@ export default function AdminApplicantsPage() {
   };
 
   const openAcceptModal = (applicant: Applicant) => {
-    const template = `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to accept your application for the ${applicant.position} role at Lifewood.\n\nTo begin your assessment, please click the button below to verify your details and start your AI Interview.\n\nWe look forward to working with you!\n\nBest regards,\nThe Lifewood Team`;
+    const template = applicant.status === "Interview Completed"
+      ? `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to move forward with your application for the ${applicant.position} role at Lifewood.\n\nYour AI screening has been reviewed successfully, and we are happy to inform you that you have passed this stage.\n\nOur team will contact you soon with the next steps.\n\nBest regards,\nThe Lifewood Team`
+      : `Dear ${applicant.first_name},\n\nThank you for applying for the ${applicant.position} role at Lifewood.\n\nWe would like to invite you to complete the AI screening interview as the next step in our hiring process.\n\nPlease click the interview link below and complete the screening at your earliest convenience.\n\nBest regards,\nThe Lifewood Team`;
     setEmailMessage(template);
     setAcceptEmailModal(applicant);
   };
 
   const openRejectModal = (applicant: Applicant) => {
-    const template = `Dear ${applicant.first_name},\n\nThank you for your interest in the ${applicant.position} role at Lifewood. After careful consideration, we will not be moving forward with your application at this time.\n\nWe appreciate the time you took to apply and encourage you to apply again in the future.\n\nBest regards,\nThe Lifewood Team`;
+    const template = `Dear ${applicant.first_name},\n\nThank you for completing the AI screening for the ${applicant.position} role at Lifewood.\n\nAfter careful review, we will not be moving forward with your application for this position at this time.\n\nWe appreciate the time and effort you invested in the process, and we encourage you to apply again for future opportunities that match your skills and experience.\n\nBest regards,\nThe Lifewood Team`;
     setRejectMessage(template);
     setRejectEmailModal(applicant);
+  };
+
+  const buildEmailTemplateParams = (options: {
+    applicant: Applicant;
+    message: string;
+    subject: string;
+    includeInterviewLink: boolean;
+  }) => {
+    const interviewLink = options.includeInterviewLink
+      ? `${window.location.origin}/interview/${options.applicant.id}`
+      : "";
+
+    return {
+      to_email: options.applicant.email,
+      to_name: options.applicant.first_name,
+      from_name: "Lifewood Admin",
+      message: options.message,
+      subject: options.subject,
+      interview_link: interviewLink,
+      cta_url: interviewLink,
+      cta_label: options.includeInterviewLink ? "Start AI Interview" : "",
+      show_interview_button: options.includeInterviewLink ? "true" : "false",
+      show_cta: options.includeInterviewLink ? "true" : "false",
+      email_type: options.includeInterviewLink ? "ai_screening" : "decision",
+    };
   };
 
   const handleSendAcceptance = async () => {
@@ -522,49 +567,47 @@ export default function AdminApplicantsPage() {
     setIsSending(true);
 
     try {
-      // 1. Update the status to 'Pending Interview' in DB
+      const nextStatus = acceptEmailModal.status === "Interview Completed" ? "Accepted" : "Pending Interview";
+
       const { error } = await supabase
         .from("applicants")
-        .update({ status: "Pending Interview" })
+        .update({ status: nextStatus })
         .eq("id", acceptEmailModal.id);
 
       if (error) throw error;
 
-      // 2. Call EmailJS to send the email directly from the browser
-      // NOTE: You must replace these placeholders with your actual EmailJS IDs!
-      const EMAILJS_SERVICE_ID = "service_cpyba2r";
-      const EMAILJS_TEMPLATE_ID = "template_qbegp0m";
-      const EMAILJS_PUBLIC_KEY = "bbHE7xH3WprnKw8i8";
+      const isScreeningEmail = nextStatus === "Pending Interview";
+      const templateId = isScreeningEmail
+        ? EMAILJS_SCREENING_TEMPLATE_ID
+        : (EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID);
 
-      const templateParams = {
-        to_email: acceptEmailModal.email,
-        to_name: acceptEmailModal.first_name,
-        from_name: "Lifewood Admin",
+      const templateParams = buildEmailTemplateParams({
+        applicant: acceptEmailModal,
         message: emailMessage,
         subject: `Update on your application at Lifewood`,
-        interview_link: `${window.location.origin}/interview/${acceptEmailModal.id}`
-      };
+        includeInterviewLink: isScreeningEmail,
+      });
 
       await emailjs.send(
         EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
+        templateId,
         templateParams,
         EMAILJS_PUBLIC_KEY
       );
 
       setApplicants((prev) =>
-        prev.map((a) => (a.id === acceptEmailModal.id ? { ...a, status: "Pending Interview" } : a))
+        prev.map((a) => (a.id === acceptEmailModal.id ? { ...a, status: nextStatus } : a))
       );
       if (viewApplicant?.id === acceptEmailModal.id) {
-        setViewApplicant((prev) => (prev ? { ...prev, status: "Pending Interview" } : prev));
+        setViewApplicant((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       }
 
       setAcceptEmailModal(null);
-      setSuccessModalStatus("Pending Interview");
+      setSuccessModalStatus(nextStatus === "Accepted" ? "Accepted" : "Pending Interview");
     } catch (err: any) {
       console.error("EmailJS Error:", err);
       const errorMsg = err.text || err.message || "Unknown error";
-      alert("Failed to send acceptance: " + errorMsg);
+      alert("Failed to send email: " + errorMsg);
     } finally {
       setIsSending(false);
     }
@@ -585,20 +628,16 @@ export default function AdminApplicantsPage() {
 
       // 2. Call EmailJS to send the email directly from the browser
       // NOTE: You must replace these placeholders with your actual EmailJS IDs!
-      const EMAILJS_SERVICE_ID = "service_cpyba2r";
-      const EMAILJS_REJECTION_TEMPLATE_ID = "template_qbegp0m";
-      const EMAILJS_PUBLIC_KEY = "bbHE7xH3WprnKw8i8";
-
-      const templateParams = {
-        to_email: rejectEmailModal.email,
-        to_name: rejectEmailModal.first_name,
+      const templateParams = buildEmailTemplateParams({
+        applicant: rejectEmailModal,
         message: rejectMessage,
-        subject: `Update on your application at Lifewood`
-      };
+        subject: `Update on your application at Lifewood`,
+        includeInterviewLink: false,
+      });
 
       await emailjs.send(
         EMAILJS_SERVICE_ID,
-        EMAILJS_REJECTION_TEMPLATE_ID,
+        EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID,
         templateParams,
         EMAILJS_PUBLIC_KEY
       );
@@ -836,7 +875,7 @@ export default function AdminApplicantsPage() {
           {viewApplicant && (
             <div className="fixed inset-0 z-[90] bg-[#06140f]/55 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="w-full max-w-[720px] rounded-2xl border border-[#dbe7e1] bg-white p-5 md:p-6 overflow-y-auto max-h-[90vh]">
-                <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#e6eee9] bg-white px-5 py-5 md:-mx-6 md:-mt-6 md:px-6 md:py-6">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6a7c73] mb-1">
                       Applicant Details
@@ -1008,19 +1047,19 @@ export default function AdminApplicantsPage() {
                       <button
                         type="button"
                         onClick={() => openAcceptModal(viewApplicant)}
-                        disabled={["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status)
+                        disabled={!isPrimaryApplicantActionEnabled(viewApplicant.status)}
+                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${!isPrimaryApplicantActionEnabled(viewApplicant.status)
                             ? "bg-[#e0e9e4] text-[#869b90] cursor-not-allowed"
                             : "bg-[#046241] text-white hover:bg-[#034d33]"
                           }`}
                       >
-                        {["Pending Interview", "Interview Completed", "Accepted"].includes(viewApplicant.status) ? "Accepted" : "Accept Applicant"}
+                        {getPrimaryApplicantActionLabel(viewApplicant.status)}
                       </button>
                       <button
                         type="button"
                         onClick={() => openRejectModal(viewApplicant)}
-                        disabled={viewApplicant.status === "Rejected" || viewApplicant.status === "Accepted"}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${viewApplicant.status === "Rejected" || viewApplicant.status === "Accepted"
+                        disabled={!canRejectAfterInterview(viewApplicant.status)}
+                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${!canRejectAfterInterview(viewApplicant.status)
                             ? "bg-red-600/10 text-red-600/60 cursor-not-allowed"
                             : "bg-red-600 text-white hover:bg-red-700"
                           }`}
@@ -1077,10 +1116,12 @@ export default function AdminApplicantsPage() {
                 <div className="px-5 py-4 border-b border-[#e0e9e4] flex items-center justify-between bg-[#fcfdfc]">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#046241] mb-1">
-                      Send Offer
+                      {acceptEmailModal.status === "Interview Completed" ? "Send Decision" : "Send AI Screening"}
                     </p>
                     <h3 className="text-[18px] font-black tracking-[-0.02em] text-[#10261d]">
-                      Accept {acceptEmailModal.first_name}
+                      {acceptEmailModal.status === "Interview Completed"
+                        ? `Accept ${acceptEmailModal.first_name}`
+                        : `Send AI Screening to ${acceptEmailModal.first_name}`}
                     </h3>
                   </div>
                   <button
@@ -1094,7 +1135,9 @@ export default function AdminApplicantsPage() {
                 </div>
                 <div className="p-5">
                   <p className="text-[12px] text-[#1a3326]/70 mb-3">
-                    Edit the acceptance email below before sending.
+                    {acceptEmailModal.status === "Interview Completed"
+                      ? "Review the acceptance email below before sending."
+                      : "Review the AI screening email below before sending."}
                   </p>
 
                   <div className="mb-3">
@@ -1131,7 +1174,9 @@ export default function AdminApplicantsPage() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                           </svg>
-                          Send Email & Accept
+                          {acceptEmailModal.status === "Interview Completed"
+                            ? "Send Email & Accept"
+                            : "Send AI Screening Email"}
                         </>
                       )}
                     </button>
@@ -1251,7 +1296,7 @@ export default function AdminApplicantsPage() {
             <div className="fixed inset-0 z-[110] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="w-full max-w-[400px] rounded-2xl border border-[#dbe7e1] bg-white p-6 shadow-2xl">
                 <div className="flex flex-col items-center text-center">
-                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted"
+                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
                       ? "bg-[#f3f8f5] border-[#d8e5de] text-[#046241]"
                       : "bg-[#fff5f5] border-[#f2d9d9] text-red-600"
                     }`}>
@@ -1263,15 +1308,16 @@ export default function AdminApplicantsPage() {
                     Email Sent!
                   </h3>
                   <p className="text-[13px] text-[#1a3326]/70 mb-6">
-                    {successModalStatus === "Accepted"
-                      ? "The acceptance email has been instantly delivered to the applicant. Their status is now \"Accepted\"."
-                      : "The rejection email has been instantly delivered to the applicant. Their status is now \"Rejected\"."
-                    }
+                    {successModalStatus === "Pending Interview"
+                      ? "The AI screening email has been sent to the applicant. Their status is now \"Pending Interview\"."
+                      : successModalStatus === "Accepted"
+                        ? "The acceptance email has been sent to the applicant. Their status is now \"Accepted\"."
+                        : "The rejection email has been sent to the applicant. Their status is now \"Rejected\"."}
                   </p>
                   <button
                     type="button"
                     onClick={() => setSuccessModalStatus(null)}
-                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted"
+                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
                         ? "bg-[#046241] hover:bg-[#034d33]"
                         : "bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
                       }`}

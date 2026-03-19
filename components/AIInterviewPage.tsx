@@ -19,6 +19,14 @@ interface InterviewEvaluation {
   summary: string;
 }
 
+interface ApplicantInterviewAccess {
+  firstName: string;
+  applicantName: string;
+  email: string;
+  status: string;
+  interviewLocked: boolean;
+}
+
 const EASE = [0.16, 1, 0.3, 1] as const;
 const INTERVIEW_BOOTSTRAP_PROMPT = "Please begin the interview by introducing yourself according to your instructions.";
 const SCORE_METADATA_ROLE = "system_score_meta";
@@ -257,7 +265,13 @@ async function fetchApplicantName(applicantId: string) {
     throw new Error(data?.message || "Failed to load applicant details.");
   }
 
-  return String(data?.firstName || data?.applicantName || "").trim();
+  return {
+    firstName: String(data?.firstName || "").trim(),
+    applicantName: String(data?.applicantName || "").trim(),
+    email: String(data?.email || "").trim(),
+    status: String(data?.status || "").trim(),
+    interviewLocked: Boolean(data?.interviewLocked),
+  } satisfies ApplicantInterviewAccess;
 }
 
 async function completeInterviewOnServer(
@@ -437,8 +451,24 @@ export default function AIInterviewPage() {
 
         if (applicantId) {
           try {
-            loadedApplicantName = await fetchApplicantName(applicantId);
+            const applicantAccess = await fetchApplicantName(applicantId);
+            loadedApplicantName = applicantAccess.firstName || applicantAccess.applicantName;
             setApplicantName(loadedApplicantName);
+
+            if (applicantAccess.interviewLocked) {
+              const lockedMessage = applicantAccess.firstName
+                ? `Hello, ${applicantAccess.firstName}. This interview link has already been used. Your interview is already completed, so you cannot take it again with the same link.`
+                : "This interview link has already been used. Your interview is already completed, so you cannot take it again with the same link.";
+
+              setMessages([{
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: lockedMessage,
+              }]);
+              setInterviewComplete(true);
+              setChatHistory([]);
+              return;
+            }
           } catch (nameError) {
             console.error("Failed to load applicant name for interview:", nameError);
           }
