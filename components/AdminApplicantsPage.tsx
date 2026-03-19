@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import emailjs from '@emailjs/browser';
 import {
@@ -141,6 +141,7 @@ export default function AdminApplicantsPage() {
   const [rejectMessage, setRejectMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingReviewId, setPendingReviewId] = useState<string | null>(null);
+  const interviewRequestIdRef = useRef(0);
   const [autoOpenApplicantId, setAutoOpenApplicantId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return new URLSearchParams(window.location.search).get("applicantId");
@@ -160,6 +161,13 @@ export default function AdminApplicantsPage() {
   const canManage = hasAdminAccess(user);
   const isRootAdmin = isSuperAdmin(user);
   const activePath = currentPath === "/admin" ? "/admin/dashboard" : currentPath;
+  const hasInterviewTranscript = Boolean(viewApplicantResults && viewApplicantResults.length > 0);
+  const hasInterviewResultData =
+    hasInterviewTranscript ||
+    viewApplicantScore !== null ||
+    viewApplicantEvaluationSummary.trim().length > 0;
+  const isInitialInterviewResultLoad = isLoadingInterviewResults && !hasInterviewResultData;
+  const isRefreshingInterviewResults = isLoadingInterviewResults && hasInterviewResultData;
 
   const markApplicantCompletedLocally = (applicantId: string) => {
     setApplicants((prev) =>
@@ -266,11 +274,20 @@ export default function AdminApplicantsPage() {
     }
   };
 
-  const loadApplicantInterviewData = async (applicantId: string) => {
+  const loadApplicantInterviewData = async (
+    applicantId: string,
+    options?: { preserveExisting?: boolean }
+  ) => {
+    const preserveExisting = options?.preserveExisting ?? false;
+    const requestId = interviewRequestIdRef.current + 1;
+    interviewRequestIdRef.current = requestId;
     setIsLoadingInterviewResults(true);
-    setViewApplicantResults(null);
-    setViewApplicantScore(null);
-    setViewApplicantEvaluationSummary("");
+
+    if (!preserveExisting) {
+      setViewApplicantResults(null);
+      setViewApplicantScore(null);
+      setViewApplicantEvaluationSummary("");
+    }
 
     try {
       const { data, error } = await supabase
@@ -281,6 +298,7 @@ export default function AdminApplicantsPage() {
         .limit(1);
 
       if (error) throw error;
+      if (interviewRequestIdRef.current !== requestId) return;
 
       if (data && data.length > 0) {
         const parsedResult = parseInterviewResult(data[0]);
@@ -292,11 +310,18 @@ export default function AdminApplicantsPage() {
         if (currentApplicant?.status === "Pending Interview") {
           void syncApplicantInterviewCompleted(applicantId);
         }
+      } else if (!preserveExisting) {
+        setViewApplicantResults(null);
+        setViewApplicantScore(null);
+        setViewApplicantEvaluationSummary("");
       }
     } catch (err) {
+      if (interviewRequestIdRef.current !== requestId) return;
       console.log("No interview results found or error fetching.", err);
     } finally {
-      setIsLoadingInterviewResults(false);
+      if (interviewRequestIdRef.current === requestId) {
+        setIsLoadingInterviewResults(false);
+      }
     }
   };
 
@@ -314,7 +339,7 @@ export default function AdminApplicantsPage() {
       void fetchApplicants(false);
 
       if (viewApplicant?.id) {
-        void loadApplicantInterviewData(viewApplicant.id);
+        void loadApplicantInterviewData(viewApplicant.id, { preserveExisting: true });
       }
     }, 5000);
 
@@ -388,7 +413,7 @@ export default function AdminApplicantsPage() {
           filter: `applicant_id=eq.${viewApplicant.id}`,
         },
         () => {
-          void loadApplicantInterviewData(viewApplicant.id);
+          void loadApplicantInterviewData(viewApplicant.id, { preserveExisting: true });
           void fetchApplicants(false);
         }
       )
@@ -448,10 +473,11 @@ export default function AdminApplicantsPage() {
   const openApplicantDetails = async (applicant: Applicant) => {
     setViewApplicant(applicant);
     setPendingReviewId(applicant.status === "New" ? applicant.id : null);
-    await loadApplicantInterviewData(applicant.id);
+    await loadApplicantInterviewData(applicant.id, { preserveExisting: false });
   };
 
   const closeApplicantDetails = () => {
+    interviewRequestIdRef.current += 1;
     if (pendingReviewId && viewApplicant?.id === pendingReviewId && viewApplicant.status === "New") {
       void handleUpdateStatus(pendingReviewId, "Reviewed");
     }
@@ -916,21 +942,44 @@ export default function AdminApplicantsPage() {
                             <div>
                               <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]">Interview Score</p>
                               <h4 className="mt-1 text-[28px] leading-none font-black text-[#10261d]">
-                                {viewApplicantScore !== null ? `${viewApplicantScore}/100` : "No score yet"}
+                                {viewApplicantScore !== null
+                                  ? `${viewApplicantScore}/100`
+                                  : isInitialInterviewResultLoad
+                                    ? "Loading..."
+                                    : hasInterviewTranscript
+                                      ? "Saved"
+                                      : "No score yet"}
                               </h4>
                             </div>
-                            <p className="max-w-2xl text-[13px] leading-[1.7] text-[#1a3326]/78">
-                              {viewApplicantEvaluationSummary || "The applicant's interview transcript and score will appear here after the AI interview is saved."}
-                            </p>
+                            <div className="max-w-2xl">
+                              {isRefreshingInterviewResults && (
+                                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]/75">
+                                  Refreshing saved result...
+                                </p>
+                              )}
+                              <p className="text-[13px] leading-[1.7] text-[#1a3326]/78">
+                                {viewApplicantEvaluationSummary ||
+                                  (isInitialInterviewResultLoad
+                                    ? "Loading the applicant's saved interview result."
+                                    : hasInterviewTranscript
+                                      ? "The interview transcript is saved for this applicant."
+                                      : "The applicant's interview transcript and score will appear here after the AI interview is saved.")}
+                              </p>
+                            </div>
                           </div>
                         </div>
 
-                        {isLoadingInterviewResults ? (
+                        {isInitialInterviewResultLoad ? (
                           <div className="rounded-xl border border-[#e6eee9] bg-[#f8faf9] p-4 text-[13px] text-[#1a3326]/65">
                             Loading interview results...
                           </div>
-                        ) : viewApplicantResults && viewApplicantResults.length > 0 ? (
+                        ) : hasInterviewTranscript ? (
                           <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
+                            {isRefreshingInterviewResults && (
+                              <div className="rounded-lg border border-[#d7e8df] bg-white px-3 py-2 text-[11px] font-medium text-[#1a3326]/60">
+                                Checking for the latest interview updates...
+                              </div>
+                            )}
                             {viewApplicantResults.map((msg, idx) => (
                               <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
                                 <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'

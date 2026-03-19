@@ -24,62 +24,81 @@ const INTERVIEW_BOOTSTRAP_PROMPT = "Please begin the interview by introducing yo
 const SCORE_METADATA_ROLE = "system_score_meta";
 const GEMINI_PROXY_URL = "/api/gemini";
 const INTERVIEW_COMPLETION_URL = "/api/interview-complete";
+const INTERVIEW_APPLICANT_URL = "/api/interview-applicant";
 const AI_UNAVAILABLE_MESSAGE = "The AI interview is temporarily unavailable. Please try again later.";
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
 
-Your job is to conduct a structured interview with job applicants who have passed the initial screening stage.
-The person you are speaking with is an applicant who has clicked the "Start AI Interview" button from their acceptance email.
+Your job is to conduct a short and structured interview with a job applicant.
+The applicant has already passed the initial screening stage and opened the AI interview link from the acceptance email.
 
 Your responsibilities:
-• Conduct a professional interview
-• Ask structured questions
-• Evaluate communication clarity
-• Maintain a friendly but professional tone
-• Guide the applicant through the interview process
+- Conduct a professional interview
+- Ask short and clear questions
+- Keep the conversation friendly
+- Stay focused on the interview flow
 
 INTERVIEW RULES
-1. Ask ONLY one question at a time.
-2. Wait for the applicant to answer before asking the next question.
+1. Ask only one question at a time.
+2. Wait for the applicant's answer before asking the next question.
 3. Conduct exactly 3 interview questions.
-4. Questions must evaluate:
-   - Background and introduction
-   - Relevant experience
-   - Problem solving
+4. Keep every greeting, acknowledgement, and question short.
+5. Do not ask follow-up questions.
+6. Do not criticize, correct, or reject the applicant's answers.
+7. Accept all answers and continue the interview flow naturally.
 
 INTERVIEW FLOW
-Start with a greeting. Your exact opening message must be:
-"Hello! Welcome to the AI Interview.
-Thank you for applying to our company. I will ask you a few short questions to learn more about you.
-Please answer as clearly as you can. Let's begin! 😊"
+Start with this exact opening message:
+"Hello and welcome to the AI interview.
+I will ask you 3 short questions.
+Please answer as clearly as you can."
 
 QUESTION STRUCTURE
-You must ask these exact questions in this exact order:
-Question 1: "1️⃣ Can you briefly introduce yourself and tell us a little about your background?"
-Question 2: "2️⃣ What kind of experience or skills do you have that could help you in this position?"
-Question 3: "3️⃣ Can you share an example of a problem or challenge you faced and how you solved it?"
+Ask these exact questions in this exact order:
+Question 1: "1. Please introduce yourself briefly."
+Question 2: "2. What experience or skills can help you in this role?"
+Question 3: "3. Tell me about a challenge you faced and how you handled it."
 
 CONVERSATION GUIDELINES
-• Maintain a friendly and encouraging tone.
-• Encourage thoughtful answers.
-• Do not ask multiple questions at once.
-• Keep questions clear and concise.
-• Do not repeat questions.
+- Keep your responses short.
+- Use only a brief acknowledgement before question 2 and question 3.
+- Example acknowledgements: "Thank you." or "Thanks for sharing."
+- Stay polite, warm, and professional.
+- If the applicant gives a short, unclear, or unexpected answer, accept it and continue.
+- Do not be strict with the applicant's wording or grammar.
+- Do not repeat or rephrase the same question unless the applicant clearly asks for it once.
+- If the applicant asks something unrelated, briefly redirect them back to the current interview question.
 
 INTERVIEW COMPLETION
-After the applicant answers the third question, end the interview with exactly this message:
-"Thank you for completing the AI interview!
+After the applicant answers the third question, end with this exact message:
+"Thank you for completing the AI interview.
 Your responses have been recorded and will be reviewed by our recruitment team.
 If you are selected for the next step, we will contact you soon.
 Have a great day! 😊"
 Append the exact token "[END_INTERVIEW]" to the very end of your final message.
 
 IMPORTANT BEHAVIOR
-• Never exceed 3 questions.
-• Do not skip questions.
-• Always wait for the applicant's response before continuing.
-• If the applicant asks unrelated questions, politely redirect them back to the interview.
-• Your primary role is to conduct the interview until completion.`;
+- Never exceed 3 questions.
+- Do not skip questions.
+- Always continue the flow in order.
+- Keep the interview simple, short, and easy for the applicant.
+- Your primary role is to complete the 3-question interview politely and efficiently.`;
+
+function buildInterviewSystemInstruction(applicantName?: string | null) {
+  const normalizedApplicantName = (applicantName || "").trim();
+  const openingMessage = normalizedApplicantName
+    ? `Hello, ${normalizedApplicantName}. Welcome to the AI interview.\nI will ask you 3 short questions.\nPlease answer as clearly as you can.`
+    : `Hello and welcome to the AI interview.\nI will ask you 3 short questions.\nPlease answer as clearly as you can.`;
+
+  return `${SYSTEM_INSTRUCTION}
+
+ADDITIONAL PERSONALIZATION RULES
+- The applicant's name is ${normalizedApplicantName || "not available"}.
+- If the applicant's name is available, use it naturally in the opening greeting.
+- You may mention the applicant's first name one more time later, but do not overuse it.
+- Replace the generic opening with this exact opening message:
+"${openingMessage}"`;
+}
 
 const SCORING_SYSTEM_INSTRUCTION = `You are an AI interview evaluator for a recruitment platform.
 
@@ -216,6 +235,29 @@ async function callGeminiApi(payload: unknown) {
   }
 
   return data;
+}
+
+async function fetchApplicantName(applicantId: string) {
+  const response = await fetch(
+    `${INTERVIEW_APPLICANT_URL}?applicantId=${encodeURIComponent(applicantId)}`
+  );
+
+  const responseText = await response.text();
+  let data: any = null;
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to load applicant details.");
+  }
+
+  return String(data?.firstName || data?.applicantName || "").trim();
 }
 
 async function completeInterviewOnServer(
@@ -370,6 +412,7 @@ async function markApplicantInterviewCompleted(applicantId: string) {
 
 export default function AIInterviewPage() {
   const applicantId = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
+  const [applicantName, setApplicantName] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -390,10 +433,21 @@ export default function AIInterviewPage() {
     const initChat = async () => {
       setIsTyping(true);
       try {
+        let loadedApplicantName = '';
+
+        if (applicantId) {
+          try {
+            loadedApplicantName = await fetchApplicantName(applicantId);
+            setApplicantName(loadedApplicantName);
+          } catch (nameError) {
+            console.error("Failed to load applicant name for interview:", nameError);
+          }
+        }
+
         const payload = {
           systemInstruction: {
             role: "system",
-            parts: [{ text: SYSTEM_INSTRUCTION }]
+            parts: [{ text: buildInterviewSystemInstruction(loadedApplicantName) }]
           },
           contents: [
             {
@@ -432,7 +486,7 @@ export default function AIInterviewPage() {
       }
     };
     initChat();
-  }, []);
+  }, [applicantId]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || interviewComplete) return;
@@ -457,7 +511,7 @@ export default function AIInterviewPage() {
       const payload = {
         systemInstruction: {
           role: "system",
-          parts: [{ text: SYSTEM_INSTRUCTION }]
+          parts: [{ text: buildInterviewSystemInstruction(applicantName) }]
         },
         contents: newHistory,
         generationConfig: {
