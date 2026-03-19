@@ -355,7 +355,9 @@ function buildStoredTranscript(transcript: TranscriptEntry[], evaluation: Interv
         evaluationSummary: evaluation.summary,
       }),
     },
-    ...transcript,
+    ...transcript.filter(
+      (entry) => !(entry.role === "user" && entry.text === INTERVIEW_BOOTSTRAP_PROMPT)
+    ),
   ];
 }
 

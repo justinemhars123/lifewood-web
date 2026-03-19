@@ -525,14 +525,14 @@ export default function AdminApplicantsPage() {
 
   const openAcceptModal = (applicant: Applicant) => {
     const template = applicant.status === "Interview Completed"
-      ? `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to move forward with your application for the ${applicant.position} role at Lifewood.\n\nYour AI screening has been reviewed successfully, and we are happy to inform you that you have passed this stage.\n\nOur team will contact you soon with the next steps.\n\nBest regards,\nThe Lifewood Team`
+      ? `Congratulations! We are pleased to move forward with your application for the ${applicant.position} role at Lifewood.\n\nYour AI screening has been reviewed successfully, and we are happy to inform you that you have passed this stage.\n\nOur team will contact you soon with the next steps.`
       : `Dear ${applicant.first_name},\n\nThank you for applying for the ${applicant.position} role at Lifewood.\n\nWe would like to invite you to complete the AI screening interview as the next step in our hiring process.\n\nPlease click the interview link below and complete the screening at your earliest convenience.\n\nBest regards,\nThe Lifewood Team`;
     setEmailMessage(template);
     setAcceptEmailModal(applicant);
   };
 
   const openRejectModal = (applicant: Applicant) => {
-    const template = `Dear ${applicant.first_name},\n\nThank you for completing the AI screening for the ${applicant.position} role at Lifewood.\n\nAfter careful review, we will not be moving forward with your application for this position at this time.\n\nWe appreciate the time and effort you invested in the process, and we encourage you to apply again for future opportunities that match your skills and experience.\n\nBest regards,\nThe Lifewood Team`;
+    const template = `Thank you for completing the AI screening for the ${applicant.position} role at Lifewood.\n\nAfter careful review, we will not be moving forward with your application for this position at this time.\n\nWe appreciate the time and effort you invested in the process, and we encourage you to apply again for future opportunities that match your skills and experience.`;
     setRejectMessage(template);
     setRejectEmailModal(applicant);
   };
