@@ -23,6 +23,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 const INTERVIEW_BOOTSTRAP_PROMPT = "Please begin the interview by introducing yourself according to your instructions.";
 const SCORE_METADATA_ROLE = "system_score_meta";
 const GEMINI_PROXY_URL = "/api/gemini";
+const INTERVIEW_COMPLETION_URL = "/api/interview-complete";
 const AI_UNAVAILABLE_MESSAGE = "The AI interview is temporarily unavailable. Please try again later.";
 
 const SYSTEM_INSTRUCTION = `You are an AI Recruitment Interview Agent integrated into a hiring platform.
@@ -215,6 +216,42 @@ async function callGeminiApi(payload: unknown) {
   }
 
   return data;
+}
+
+async function completeInterviewOnServer(
+  applicantId: string,
+  storedTranscript: TranscriptEntry[],
+  evaluation: InterviewEvaluation
+) {
+  const response = await fetch(INTERVIEW_COMPLETION_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      applicantId,
+      qaTranscript: storedTranscript,
+      interviewScore: evaluation.score,
+      evaluationSummary: evaluation.summary,
+    }),
+  });
+
+  const responseText = await response.text();
+  let data: any = null;
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Failed to finalize the interview.");
+  }
+
+  return {
+    savedInterviewResult: data?.savedInterviewResult !== false,
+  };
 }
 
 async function generateInterviewEvaluation(transcript: TranscriptEntry[]): Promise<InterviewEvaluation> {
@@ -461,15 +498,25 @@ export default function AIInterviewPage() {
           const storedTranscript = buildStoredTranscript(formattedQa, evaluation);
 
           try {
-            await saveInterviewResult(applicantId, storedTranscript, evaluation);
-          } catch (dbErr) {
-            console.error("Failed to save interview transcript:", dbErr);
-          }
+            const completionResult = await completeInterviewOnServer(applicantId, storedTranscript, evaluation);
 
-          try {
-            await markApplicantInterviewCompleted(applicantId);
-          } catch (statusErr) {
-            console.error("Failed to update applicant interview status:", statusErr);
+            if (!completionResult.savedInterviewResult) {
+              await saveInterviewResult(applicantId, storedTranscript, evaluation);
+            }
+          } catch (serverErr) {
+            console.error("Failed to complete interview on server, retrying from client:", serverErr);
+
+            try {
+              await saveInterviewResult(applicantId, storedTranscript, evaluation);
+            } catch (dbErr) {
+              console.error("Failed to save interview transcript:", dbErr);
+            }
+
+            try {
+              await markApplicantInterviewCompleted(applicantId);
+            } catch (statusErr) {
+              console.error("Failed to update applicant interview status:", statusErr);
+            }
           }
         }
       }
