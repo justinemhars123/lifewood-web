@@ -899,6 +899,59 @@ export default function AdminApplicantsPage() {
                         <option value="Rejected">Rejected</option>
                       </select>
                     </div>
+
+                    <div className="mt-6 pt-5 border-t border-[#e6eee9]">
+                      <div className="flex items-center gap-2 mb-4">
+                        <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d]">
+                          AI Interview Result
+                        </h4>
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        <div className="rounded-xl border border-[#d7e8df] bg-[linear-gradient(135deg,#f7fbf9_0%,#edf7f1_100%)] p-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]">Interview Score</p>
+                              <h4 className="mt-1 text-[28px] leading-none font-black text-[#10261d]">
+                                {viewApplicantScore !== null ? `${viewApplicantScore}/100` : "No score yet"}
+                              </h4>
+                            </div>
+                            <p className="max-w-2xl text-[13px] leading-[1.7] text-[#1a3326]/78">
+                              {viewApplicantEvaluationSummary || "The applicant's interview transcript and score will appear here after the AI interview is saved."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isLoadingInterviewResults ? (
+                          <div className="rounded-xl border border-[#e6eee9] bg-[#f8faf9] p-4 text-[13px] text-[#1a3326]/65">
+                            Loading interview results...
+                          </div>
+                        ) : viewApplicantResults && viewApplicantResults.length > 0 ? (
+                          <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
+                            {viewApplicantResults.map((msg, idx) => (
+                              <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
+                                    ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
+                                    : 'bg-[#046241] text-white rounded-bl-sm'
+                                  }`}>
+                                  <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
+                                    {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
+                                  </p>
+                                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-[#d7e8df] bg-[#fbfdfc] p-4 text-[13px] text-[#1a3326]/65">
+                            No interview result is available for this applicant yet.
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="md:col-span-2 mt-4 flex items-center justify-between gap-3">
@@ -936,59 +989,6 @@ export default function AdminApplicantsPage() {
                     </button>
                   </div>
 
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-[#e0e9e4]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d]">
-                      AI Interview Result
-                    </h4>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="rounded-xl border border-[#d7e8df] bg-[linear-gradient(135deg,#f7fbf9_0%,#edf7f1_100%)] p-4">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]">Interview Score</p>
-                          <h4 className="mt-1 text-[28px] leading-none font-black text-[#10261d]">
-                            {viewApplicantScore !== null ? `${viewApplicantScore}/100` : "No score yet"}
-                          </h4>
-                        </div>
-                        <p className="max-w-2xl text-[13px] leading-[1.7] text-[#1a3326]/78">
-                          {viewApplicantEvaluationSummary || "The applicant's interview transcript and score will appear here after the AI interview is saved."}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isLoadingInterviewResults ? (
-                      <div className="rounded-xl border border-[#e6eee9] bg-[#f8faf9] p-4 text-[13px] text-[#1a3326]/65">
-                        Loading interview results...
-                      </div>
-                    ) : viewApplicantResults && viewApplicantResults.length > 0 ? (
-                      <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
-                        {viewApplicantResults.map((msg, idx) => (
-                          <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
-                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
-                                ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
-                                : 'bg-[#046241] text-white rounded-bl-sm'
-                              }`}>
-                              <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
-                                {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
-                              </p>
-                              <p className="whitespace-pre-wrap">{msg.text}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-[#d7e8df] bg-[#fbfdfc] p-4 text-[13px] text-[#1a3326]/65">
-                        No interview result is available for this applicant yet.
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
