@@ -874,209 +874,251 @@ export default function AdminApplicantsPage() {
 
           {viewApplicant && (
             <div className="fixed inset-0 z-[90] bg-[#06140f]/55 backdrop-blur-[2px] flex items-center justify-center p-4">
-              <div className="w-full max-w-[720px] rounded-2xl border border-[#dbe7e1] bg-white p-5 md:p-6 overflow-y-auto max-h-[90vh]">
-                <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#e6eee9] bg-white px-5 py-5 md:-mx-6 md:-mt-6 md:px-6 md:py-6">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#6a7c73] mb-1">
-                      Applicant Details
-                    </p>
-                    <h3 className="text-[24px] font-black tracking-[-0.02em] text-[#10261d]">
-                      {viewApplicant.first_name} {viewApplicant.last_name}
-                    </h3>
+              <div className="w-full max-w-[1100px] rounded-2xl border border-[#dbe7e1] bg-white overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="shrink-0 flex items-center justify-between border-b border-[#e6eee9] px-6 py-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#e6f4ea] text-[#046241] flex items-center justify-center text-[18px] font-bold">
+                      {viewApplicant.first_name[0]}{viewApplicant.last_name[0]}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#6a7c73] mb-0.5">
+                        Applicant Details
+                      </p>
+                      <h3 className="text-[22px] font-bold text-[#10261d] leading-none">
+                        {viewApplicant.first_name} {viewApplicant.last_name}
+                      </h3>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={closeApplicantDetails}
-                    className="h-9 px-4 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5]"
-                  >
-                    Close
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <span className="px-4 py-1.5 rounded-full bg-[#e6f4ea] text-[#046241] text-[11px] font-bold">
+                      {viewApplicant.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={closeApplicantDetails}
+                      className="h-9 px-5 rounded-full border border-[#d8e5de] text-[12px] font-semibold text-[#1a3326]/70 hover:bg-[#f3f8f5] transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px] text-[#163126]">
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Email</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.email}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Phone</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.phone}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Gender</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.gender}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Age</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.age}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Position Applied</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.position}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Country</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.country}</p>
-                  </div>
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3 md:col-span-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Address</p>
-                    <p className="mt-1 font-semibold">{viewApplicant.address}</p>
-                  </div>
-
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3 md:col-span-2 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Uploaded CV</p>
-                      <p className="mt-1 font-semibold truncate max-w-[300px]">{viewApplicant.cv_name}</p>
-                    </div>
-                    {viewApplicant.cv_url && (
-                      <button
-                        type="button"
-                        onClick={() => setViewPdfUrl(viewApplicant.cv_url)}
-                        className="h-8 px-4 rounded-lg bg-[#046241] text-white text-[10px] font-black uppercase tracking-[0.1em] flex items-center"
-                      >
-                        View PDF
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-[#e6eee9] bg-white p-3 md:col-span-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#1a3326]/55">Applicant Status</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <select
-                        value={viewApplicant.status}
-                        onChange={(e) => handleUpdateStatus(viewApplicant.id, e.target.value)}
-                        disabled={["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)}
-                        title={
-                          ["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
-                            ? "Status is locked after a final decision."
-                            : undefined
-                        }
-                        className={`h-9 rounded-lg border border-[#d8e5de] bg-white px-3 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)
-                            ? "opacity-70 cursor-not-allowed"
-                            : ""
-                          }`}
-                      >
-                        <option value="New">New</option>
-                        <option value="Reviewed">Reviewed</option>
-                        <option value="Pending Interview">Pending Interview</option>
-                        <option value="Interview Completed">Interview Completed</option>
-                        <option value="Accepted">Accepted</option>
-                        <option value="Rejected">Rejected</option>
-                      </select>
-                    </div>
-
-                    <div className="mt-6 pt-5 border-t border-[#e6eee9]">
-                      <div className="flex items-center gap-2 mb-4">
-                        <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                        <h4 className="text-[14px] font-black tracking-[-0.02em] text-[#10261d]">
-                          AI Interview Result
-                        </h4>
+                <div className="flex flex-col lg:flex-row overflow-hidden flex-1">
+                  {/* Left Column (Applicant Details) */}
+                  <div className="flex-1 flex flex-col overflow-y-auto p-6 pr-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[13px] text-[#163126]">
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Email</p>
+                        <p className="font-semibold">{viewApplicant.email}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Phone</p>
+                        <p className="font-semibold">{viewApplicant.phone}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Gender</p>
+                        <p className="font-semibold">{viewApplicant.gender}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Age</p>
+                        <p className="font-semibold">{viewApplicant.age}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Position Applied</p>
+                        <p className="font-semibold">{viewApplicant.position}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Country</p>
+                        <p className="font-semibold">{viewApplicant.country}</p>
+                      </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4 md:col-span-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Address</p>
+                        <p className="font-semibold">{viewApplicant.address}</p>
                       </div>
 
-                      <div className="flex flex-col gap-4">
-                        <div className="rounded-xl border border-[#d7e8df] bg-[linear-gradient(135deg,#f7fbf9_0%,#edf7f1_100%)] p-4">
-                          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]">Interview Score</p>
-                              <h4 className="mt-1 text-[28px] leading-none font-black text-[#10261d]">
-                                {viewApplicantScore !== null
-                                  ? `${viewApplicantScore}/100`
-                                  : isInitialInterviewResultLoad
-                                    ? "Loading..."
-                                    : hasInterviewTranscript
-                                      ? "Saved"
-                                      : "No score yet"}
-                              </h4>
-                            </div>
-                            <div className="max-w-2xl">
-                              {isRefreshingInterviewResults && (
-                                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]/75">
-                                  Refreshing saved result...
-                                </p>
-                              )}
-                              <p className="text-[13px] leading-[1.7] text-[#1a3326]/78">
-                                {viewApplicantEvaluationSummary ||
-                                  (isInitialInterviewResultLoad
-                                    ? "Loading the applicant's saved interview result."
-                                    : hasInterviewTranscript
-                                      ? "The interview transcript is saved for this applicant."
-                                      : "The applicant's interview transcript and score will appear here after the AI interview is saved.")}
-                              </p>
-                            </div>
+                      <div className="rounded-xl bg-white border border-[#e6eee9] p-4 md:col-span-2 flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5">Uploaded CV</p>
+                            <p className="font-semibold truncate max-w-[300px]">{viewApplicant.cv_name}</p>
                           </div>
+                          {viewApplicant.cv_url && (
+                            <button
+                              type="button"
+                              onClick={() => setViewPdfUrl(viewApplicant.cv_url)}
+                              className="h-9 px-5 rounded-lg bg-[#046241] text-white text-[12px] font-bold transition-colors hover:bg-[#034d33]"
+                            >
+                              View CV
+                            </button>
+                          )}
                         </div>
 
-                        {isInitialInterviewResultLoad ? (
-                          <div className="rounded-xl border border-[#e6eee9] bg-[#f8faf9] p-4 text-[13px] text-[#1a3326]/65">
-                            Loading interview results...
-                          </div>
-                        ) : hasInterviewTranscript ? (
-                          <div className="space-y-4 bg-[#f8faf9] rounded-xl border border-[#e6eee9] p-4">
-                            {isRefreshingInterviewResults && (
-                              <div className="rounded-lg border border-[#d7e8df] bg-white px-3 py-2 text-[11px] font-medium text-[#1a3326]/60">
-                                Checking for the latest interview updates...
+                        {viewApplicant.cv_url && (
+                          <button
+                            type="button"
+                            onClick={() => setViewPdfUrl(viewApplicant.cv_url)}
+                            className="relative w-full h-32 rounded-xl border border-[#e6eee9] bg-gradient-to-b from-[#f8faf9] to-[#edf2f0] overflow-hidden group transition-all hover:border-[#046241]/30 hover:shadow-sm flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <div className="absolute inset-0 opacity-[0.45] transition-all duration-300 group-hover:blur-[2.5px] pointer-events-none overflow-hidden bg-white blur-[3.5px]">
+                              <iframe
+                                src={`${viewApplicant.cv_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                className="w-[150%] h-[150%] origin-top-left scale-[0.67] border-none pointer-events-none bg-transparent"
+                                title="CV Preview"
+                                tabIndex={-1}
+                              />
+                            </div>
+
+                            <div className="absolute inset-0 bg-white/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-full shadow-[0_4px_14px_rgba(4,98,65,0.08)] border border-[#e6eee9]">
+                                <svg className="w-4 h-4 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                <span className="text-[11px] font-bold text-[#046241] uppercase tracking-wider mt-0.5">Click to preview CV</span>
                               </div>
-                            )}
-                            {viewApplicantResults.map((msg, idx) => (
-                              <div key={idx} className={`flex flex-col ${msg.role === 'model' || msg.role === 'assistant' ? 'items-start' : 'items-end'}`}>
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-[1.6] ${msg.role === 'model' || msg.role === 'assistant'
-                                    ? 'bg-white border border-[#e0e9e4] text-[#163126] rounded-tl-sm'
-                                    : 'bg-[#046241] text-white rounded-bl-sm'
-                                  }`}>
-                                  <p className="text-[8px] font-black uppercase tracking-wider mb-1 opacity-60">
-                                    {msg.role === 'model' || msg.role === 'assistant' ? 'AI Agent' : 'Applicant'}
-                                  </p>
-                                  <p className="whitespace-pre-wrap">{msg.text}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-dashed border-[#d7e8df] bg-[#fbfdfc] p-4 text-[13px] text-[#1a3326]/65">
-                            No interview result is available for this applicant yet.
-                          </div>
+                            </div>
+                          </button>
                         )}
                       </div>
                     </div>
+
+                    <div className="mt-8 pt-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 border-t border-[#e6eee9]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#1a3326]/55">Status</span>
+                        <div className="relative">
+                          <select
+                            value={viewApplicant.status}
+                            onChange={(e) => handleUpdateStatus(viewApplicant.id, e.target.value)}
+                            disabled={["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)}
+                            className={`h-9 appearance-none rounded-lg border border-[#d8e5de] bg-white pl-3 pr-8 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status) ? "opacity-70 cursor-not-allowed" : ""}`}
+                          >
+                            <option value="New">New</option>
+                            <option value="Reviewed">Reviewed</option>
+                            <option value="Pending Interview">Pending Interview</option>
+                            <option value="Interview Completed">Interview Completed</option>
+                            <option value="Accepted">Accepted</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#1a3326]/55">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => openAcceptModal(viewApplicant)}
+                          disabled={!isPrimaryApplicantActionEnabled(viewApplicant.status)}
+                          className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!isPrimaryApplicantActionEnabled(viewApplicant.status)
+                            ? "bg-[#f3f8f5] border-[#d8e5de] text-[#869b90] cursor-not-allowed"
+                            : "bg-[#046241] text-white hover:bg-[#034d33] border-transparent"
+                            }`}
+                        >
+                          {getPrimaryApplicantActionLabel(viewApplicant.status)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openRejectModal(viewApplicant)}
+                          disabled={!canRejectAfterInterview(viewApplicant.status)}
+                          className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!canRejectAfterInterview(viewApplicant.status)
+                            ? "bg-red-600/5 text-red-600/40 cursor-not-allowed border-red-600/10"
+                            : "bg-red-600 text-white hover:bg-red-700 border-transparent"
+                            }`}
+                        >
+                          {viewApplicant.status === "Rejected" ? "Rejected" : "Reject"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(viewApplicant.id)}
+                          className="h-9 px-5 rounded-lg bg-red-600/10 border border-transparent text-red-600 text-[12px] font-bold hover:bg-red-600/20 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="md:col-span-2 mt-4 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openAcceptModal(viewApplicant)}
-                        disabled={!isPrimaryApplicantActionEnabled(viewApplicant.status)}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${!isPrimaryApplicantActionEnabled(viewApplicant.status)
-                            ? "bg-[#e0e9e4] text-[#869b90] cursor-not-allowed"
-                            : "bg-[#046241] text-white hover:bg-[#034d33]"
-                          }`}
-                      >
-                        {getPrimaryApplicantActionLabel(viewApplicant.status)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openRejectModal(viewApplicant)}
-                        disabled={!canRejectAfterInterview(viewApplicant.status)}
-                        className={`h-10 px-6 rounded-lg text-[11px] font-black uppercase tracking-[0.1em] transition-colors ${!canRejectAfterInterview(viewApplicant.status)
-                            ? "bg-red-600/10 text-red-600/60 cursor-not-allowed"
-                            : "bg-red-600 text-white hover:bg-red-700"
-                          }`}
-                      >
-                        {viewApplicant.status === "Rejected" ? "Rejected" : "Reject Applicant"}
-                      </button>
+                  {/* Right Column (AI Interview Result) */}
+                  <div className="w-full lg:w-[450px] flex flex-col border-t lg:border-t-0 lg:border-l border-[#e6eee9] p-6 pr-3 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-5 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-[12px] font-bold uppercase tracking-wider text-[#1a3326]/55">
+                          AI Interview Result
+                        </h4>
+                        {isRefreshingInterviewResults && (
+                          <svg className="animate-spin h-3.5 w-3.5 text-[#046241]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="px-3 py-1 rounded-full bg-[#dcfce7] text-[#046241] text-[10px] font-bold">
+                        Scored
+                      </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(viewApplicant.id)}
-                      className="h-9 px-4 rounded-lg bg-red-600/10 text-red-600 text-[11px] font-black uppercase tracking-[0.1em] hover:bg-red-600/20 transition-colors"
-                    >
-                      Delete Applicant
-                    </button>
-                  </div>
+                    <div className="flex flex-col flex-1">
+                      <div className="mb-6 shrink-0">
+                        <div className="flex items-center gap-5 mb-4 col-span-1 border-b border-transparent">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[52px] font-black text-[#10261d] leading-none tracking-tight">
+                              {viewApplicantScore !== null ? viewApplicantScore : isInitialInterviewResultLoad ? "..." : "-"}
+                            </span>
+                            <div className="flex items-baseline gap-1 pt-3 h-full">
+                              <span className="text-[20px] font-bold text-[#6a7c73] leading-none">/</span>
+                              <span className="text-[16px] font-bold text-[#6a7c73] leading-none">100</span>
+                            </div>
+                          </div>
 
+                          <div className="flex-1 h-3 bg-[#e6eee9] rounded-full overflow-hidden self-center ml-2 max-w-[200px]">
+                            <div
+                              className="h-full bg-[#046241] rounded-full"
+                              style={{ width: `${Math.min(100, Math.max(0, viewApplicantScore || 0))}%` }}
+                            ></div>
+                          </div>
+                        </div>
+
+                        <p className="text-[13px] text-[#1a3326]/78 leading-relaxed">
+                          {viewApplicantEvaluationSummary ||
+                            (isInitialInterviewResultLoad
+                              ? "Loading the applicant's saved interview result."
+                              : hasInterviewTranscript
+                                ? "The interview transcript is saved for this applicant."
+                                : "The applicant's interview transcript and score will appear here after the AI interview is saved.")}
+                        </p>
+                      </div>
+
+                      {isInitialInterviewResultLoad ? (
+                        <div className="rounded-xl border border-[#e6eee9] bg-[#f8faf9] p-4 text-[13px] text-[#1a3326]/65 shrink-0">
+                          Loading interview results...
+                        </div>
+                      ) : hasInterviewTranscript ? (
+                        <div className="space-y-5 shrink-0">
+                          {viewApplicantResults.map((msg, idx) => {
+                            const isAgent = msg.role === 'model' || msg.role === 'assistant';
+                            return (
+                              <div key={idx} className={`flex flex-col ${isAgent ? 'items-start' : 'items-end'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider text-[#1a3326]/55 mb-1.5 ${isAgent ? 'ml-1' : 'mr-1'}`}>
+                                  {isAgent ? 'AI Agent' : 'Applicant'}
+                                </p>
+                                <div className={`max-w-[90%] px-5 py-4 text-[13px] leading-relaxed border ${isAgent
+                                  ? 'bg-white border-[#e6eee9] text-[#163126] rounded-2xl'
+                                  : 'bg-[#046241] border-transparent text-white rounded-2xl'
+                                  }`}>
+                                  <p className="whitespace-pre-wrap">{msg.text}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-dashed border-[#d7e8df] bg-[#fbfdfc] p-4 text-[13px] text-[#1a3326]/65 shrink-0">
+                          No interview result is available for this applicant yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1096,7 +1138,7 @@ export default function AdminApplicantsPage() {
                     onClick={() => setViewPdfUrl(null)}
                     className="h-9 px-4 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5]"
                   >
-                    Close PDF
+                    Close
                   </button>
                 </div>
                 <div className="flex-1 w-full bg-[#f4f7f5] p-2">
@@ -1297,8 +1339,8 @@ export default function AdminApplicantsPage() {
               <div className="w-full max-w-[400px] rounded-2xl border border-[#dbe7e1] bg-white p-6 shadow-2xl">
                 <div className="flex flex-col items-center text-center">
                   <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
-                      ? "bg-[#f3f8f5] border-[#d8e5de] text-[#046241]"
-                      : "bg-[#fff5f5] border-[#f2d9d9] text-red-600"
+                    ? "bg-[#f3f8f5] border-[#d8e5de] text-[#046241]"
+                    : "bg-[#fff5f5] border-[#f2d9d9] text-red-600"
                     }`}>
                     <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -1318,8 +1360,8 @@ export default function AdminApplicantsPage() {
                     type="button"
                     onClick={() => setSuccessModalStatus(null)}
                     className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
-                        ? "bg-[#046241] hover:bg-[#034d33]"
-                        : "bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
+                      ? "bg-[#046241] hover:bg-[#034d33]"
+                      : "bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
                       }`}
                   >
                     Done
