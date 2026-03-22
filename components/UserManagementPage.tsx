@@ -9,6 +9,7 @@ import {
   isSuperAdmin,
   logoutAuth,
 } from "../auth";
+import AdminNavigation from "./AdminNavigation";
 import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -191,6 +192,32 @@ function isMissingColumnError(message: string) {
   return text.includes("column") && text.includes("does not exist");
 }
 
+function PremiumStatCard({ title, value, subtitle, trend, trendValue }: { title: string; value: number | string; subtitle?: string; trend?: "up" | "down" | "neutral", trendValue?: string }) {
+  return (
+    <div className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#046241]/[0.02] to-transparent w-full rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+      <div className="flex justify-between items-start mb-2">
+        <p className="text-[12px] font-bold tracking-wide uppercase text-[#6a7c73]">{title}</p>
+        {trend && (
+          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${trend === "up" ? "bg-[#e6f7ef] text-[#046241]" :
+            trend === "down" ? "bg-[#ffe9e9] text-[#9f2424]" : "bg-[#f0f4f1] text-[#6a7c73]"
+            }`}>
+            {trend === "up" ? "↗" : trend === "down" ? "↘" : "→"} {trendValue}
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-[40px] leading-none font-black text-[#12261d] tracking-tight">
+        {value}
+      </p>
+      {subtitle && (
+        <p className="mt-auto pt-4 text-[11px] font-semibold text-[#1a3326]/55">
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function UserManagementPage() {
   const [user, setUser] = useState<AuthUser | null>(() => getAuthUser());
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname.replace(/\/+$/, ""));
@@ -274,9 +301,9 @@ export default function UserManagementPage() {
           ? "Could not read the `users` table. Create it first, then reload."
           : isMissingColumnError(message)
             ? "Your `users` table is missing newer columns. Run `supabase/users_setup.sql`, then reload."
-          : lowered.includes("jwt") || lowered.includes("row-level") || lowered.includes("permission")
-            ? "Your admin account is not authenticated in Supabase. Sign in with a Supabase admin account to load users."
-            : message
+            : lowered.includes("jwt") || lowered.includes("row-level") || lowered.includes("permission")
+              ? "Your admin account is not authenticated in Supabase. Sign in with a Supabase admin account to load users."
+              : message
       );
       setUsers([]);
     } finally {
@@ -408,75 +435,28 @@ export default function UserManagementPage() {
       style={{ fontFamily: "Poppins, Sora, 'Segoe UI', sans-serif" }}
     >
       <section className="min-h-screen lg:h-screen grid grid-cols-1 lg:grid-cols-[238px_minmax(0,1fr)]">
-        <aside className="bg-[linear-gradient(180deg,#07261c_0%,#051d15_100%)] text-white p-5 lg:h-screen overflow-y-auto">
-          <div className="mb-7">
-            <img
-              src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png?scale-down-to=512&width=2624&height=474"
-              alt="Lifewood"
-              className="h-8 w-auto object-contain"
-            />
-          </div>
-
-          <div className="space-y-1.5 mb-6">
-            {ADMIN_NAV_ITEMS.map((item) => {
-              const isActive = activePath === item.path;
-              return (
-                <button
-                  key={item.path}
-                  type="button"
-                  onClick={() => navigate(item.path)}
-                  className={`w-full text-left h-10 rounded-xl px-3 text-[12px] font-semibold transition-colors ${
-                    isActive
-                      ? "bg-[#0f3a2b] text-white"
-                      : "text-white/72 hover:text-white hover:bg-white/8"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-7 rounded-2xl border border-white/14 bg-white/8 p-3.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/50 mb-1.5">
-              Signed in
-            </p>
-            <p className="text-[13px] font-bold truncate">{user?.name || "Admin"}</p>
-            <p className="text-[11px] text-white/70 truncate">{user?.email}</p>
-            {isRootAdmin && (
-              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#c1ff00]">
-                Super admin
-              </p>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-4 w-full h-10 rounded-xl border border-[#FFB347]/40 text-[#FFB347]
-                       text-[11px] font-black uppercase tracking-[0.12em]
-                       hover:bg-[#FFB347]/10 transition-colors"
-          >
-            Log out
-          </button>
-        </aside>
+        <AdminNavigation user={user} activePath={activePath} isRootAdmin={isRootAdmin} />
 
         <motion.section
           key="admin-users-content"
-          initial={false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: EASE }}
-          className="p-5 md:p-7 bg-[#f7faf8] lg:h-screen overflow-y-auto"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: EASE }}
+          className="relative bg-[#f5f8f6] p-5 pt-24 md:p-8 md:pt-28 lg:h-screen lg:overflow-y-auto lg:pt-8"
         >
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <h1 className="text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
-              User Management
-            </h1>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+            <div>
+
+              <h1 className="text-[36px] md:text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
+                User Management
+              </h1>
+
+            </div>
+            <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => navigate("/admin/dashboard")}
-                className="h-9 px-3 rounded-full border border-[#d7e4dd] bg-white text-[10px] font-black uppercase tracking-[0.12em] text-[#25473a]"
+                className="h-10 px-4 rounded-full border border-[#d7e4dd] bg-white text-[11px] font-black uppercase tracking-[0.12em] text-[#25473a] hover:bg-[#f0f4f1] transition-colors"
               >
                 Dashboard
               </button>
@@ -484,39 +464,49 @@ export default function UserManagementPage() {
                 type="button"
                 onClick={() => void fetchManagedUsers()}
                 disabled={loadingUsers}
-                className="h-9 px-3 rounded-full bg-[#046241] text-white text-[10px] font-black uppercase tracking-[0.12em] disabled:opacity-55"
+                className="h-10 w-10 flex items-center justify-center rounded-full border border-[#d7e4dd] bg-white text-[#25473a] hover:bg-[#f0f4f1] transition-colors disabled:opacity-50 group"
+                title="Refresh Table"
               >
-                {loadingUsers ? "Loading..." : "Refresh"}
+                <svg className={`w-4 h-4 text-[#046241] group-hover:scale-110 transition-transform ${loadingUsers ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
               </button>
             </div>
           </div>
 
           {loadError && (
-            <div className="mb-4 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-3.5 py-2.5 text-[12px] font-semibold text-[#8a2626]">
+            <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-4 py-3 text-[13px] font-semibold text-[#8a2626] shadow-sm">
+              <svg className="h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
               {loadError}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-            <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-              <p className="text-[11px] text-[#1a3326]/62">Total users</p>
-              <p className="mt-1 text-[34px] leading-none font-black text-[#12261d]">{stats.totalUsers}</p>
-            </div>
-            <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-              <p className="text-[11px] text-[#1a3326]/62">Active today</p>
-              <p className="mt-1 text-[34px] leading-none font-black text-[#12261d]">{stats.activeUsers}</p>
-            </div>
-            <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-              <p className="text-[11px] text-[#1a3326]/62">Admin accounts</p>
-              <p className="mt-1 text-[34px] leading-none font-black text-[#12261d]">{stats.adminUsers}</p>
-            </div>
-            <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-              <p className="text-[11px] text-[#1a3326]/62">Pending invites</p>
-              <p className="mt-1 text-[34px] leading-none font-black text-[#12261d]">{stats.pendingUsers}</p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-8">
+            <PremiumStatCard
+              title="Total users"
+              value={stats.totalUsers}
+              trend="neutral"
+            />
+            <PremiumStatCard
+              title="Active today"
+              value={stats.activeUsers}
+              trend="up"
+            />
+            <PremiumStatCard
+              title="Admin accounts"
+              value={stats.adminUsers}
+              trend="neutral"
+            />
+            <PremiumStatCard
+              title="Pending invites"
+              value={stats.pendingUsers}
+              trend={stats.pendingUsers > 0 ? "down" : "neutral"}
+            />
           </div>
 
-          <div className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
+          <div className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden shadow-sm">
             <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[22px] font-black text-[#10261d]">Organization users</h2>
               <div className="h-9 w-full sm:w-[250px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 flex items-center">

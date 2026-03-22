@@ -23,6 +23,7 @@ import AdminDashboardPage from './components/AdminDashboardPage';
 import UserManagementPage from './components/UserManagementPage';
 import AdminApplicantsPage from './components/AdminApplicantsPage';
 import AdminContactsPage from './components/AdminContactsPage';
+import AdminAnalyticsPage from './components/AdminAnalyticsPage';
 import AboutSection from './components/AboutSection';
 import AboutUsPage from './components/AboutUsPage';
 import OfficesPage from './components/OfficesPage';
@@ -171,7 +172,11 @@ function App() {
               <main>
                 {adminAuthed ? <AdminContactsPage /> : <LoginPage2 />}
               </main>
-            ) : currentPath === '/admin' || currentPath === '/admin/dashboard' || currentPath === '/admin/analytics' || currentPath === '/admin/courses' ? (
+            ) : currentPath === '/admin/analytics' ? (
+              <main>
+                {adminAuthed ? <AdminAnalyticsPage /> : <LoginPage2 />}
+              </main>
+            ) : currentPath === '/admin' || currentPath === '/admin/dashboard' || currentPath === '/admin/courses' ? (
               <main>
                 {adminAuthed ? <AdminDashboardPage /> : <LoginPage2 />}
               </main>

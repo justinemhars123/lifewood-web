@@ -8,6 +8,7 @@ import {
   isSuperAdmin,
   logoutAuth,
 } from "../auth";
+import AdminNavigation from "./AdminNavigation";
 import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
@@ -197,18 +198,45 @@ function BarChart({
         {series.map((point, index) => {
           const height = Math.max(6, (point.value / maxValue) * 64);
           return (
-          <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
-            <motion.div
-              className="w-full rounded-lg"
-              initial={reduceMotion ? { height, opacity: 1 } : { height: 0, opacity: 0.6 }}
-              animate={{ height, opacity: 1 }}
-              transition={{ duration: 0.6, ease: EASE, delay: reduceMotion ? 0 : index * 0.06 }}
-              style={{ height, background: color }}
-            />
-            <span className="text-[9px] text-[#1a3326]/45">{point.label}</span>
-          </div>
-        )})}
+            <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
+              <motion.div
+                className="w-full rounded-lg"
+                initial={reduceMotion ? { height, opacity: 1 } : { height: 0, opacity: 0.6 }}
+                animate={{ height, opacity: 1 }}
+                transition={{ duration: 0.6, ease: EASE, delay: reduceMotion ? 0 : index * 0.06 }}
+                style={{ height, background: color }}
+              />
+              <span className="text-[9px] text-[#1a3326]/45">{point.label}</span>
+            </div>
+          )
+        })}
       </div>
+    </div>
+  );
+}
+
+function PremiumStatCard({ title, value, subtitle, trend, trendValue }: { title: string; value: number | string; subtitle?: string; trend?: "up" | "down" | "neutral", trendValue?: string }) {
+  return (
+    <div className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#046241]/[0.02] to-transparent w-full rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+      <div className="flex justify-between items-start mb-2">
+        <p className="text-[12px] font-bold tracking-wide uppercase text-[#6a7c73]">{title}</p>
+        {trend && (
+          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${trend === "up" ? "bg-[#e6f7ef] text-[#046241]" :
+            trend === "down" ? "bg-[#ffe9e9] text-[#9f2424]" : "bg-[#f0f4f1] text-[#6a7c73]"
+            }`}>
+            {trend === "up" ? "↗" : trend === "down" ? "↘" : "→"} {trendValue}
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-[40px] leading-none font-black text-[#12261d] tracking-tight">
+        {value}
+      </p>
+      {subtitle && (
+        <p className="mt-auto pt-4 text-[11px] font-semibold text-[#1a3326]/55">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
 }
@@ -570,380 +598,299 @@ export default function AdminDashboardPage() {
       style={{ fontFamily: "Poppins, Sora, 'Segoe UI', sans-serif" }}
     >
       <section className="min-h-screen lg:h-screen grid grid-cols-1 lg:grid-cols-[238px_minmax(0,1fr)]">
-          <aside className="bg-[linear-gradient(180deg,#07261c_0%,#051d15_100%)] text-white p-5 lg:h-screen overflow-y-auto">
-            <div className="mb-7">
-              <img
-                src="https://framerusercontent.com/images/Ca8ppNsvJIfTsWEuHr50gvkDow.png?scale-down-to=512&width=2624&height=474"
-                alt="Lifewood"
-                className="h-8 w-auto object-contain"
-              />
-            </div>
-
-            <div className="space-y-1.5 mb-6">
-              {ADMIN_NAV_ITEMS.map((item) => {
-                const isActive = activePath === item.path;
-                return (
-                  <button
-                    key={item.path}
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    className={`w-full text-left h-10 rounded-xl px-3 text-[12px] font-semibold transition-colors ${
-                      isActive
-                        ? "bg-[#0f3a2b] text-white"
-                        : "text-white/72 hover:text-white hover:bg-white/8"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-7 rounded-2xl border border-white/14 bg-white/8 p-3.5">
-              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/50 mb-1.5">
-                Signed in
-              </p>
-              <p className="text-[13px] font-bold truncate">{user?.name || "Admin"}</p>
-              <p className="text-[11px] text-white/70 truncate">{user?.email}</p>
-              {rootAdmin && (
-                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.1em] text-[#c1ff00]">
-                  Super admin
-                </p>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mt-4 w-full h-10 rounded-xl border border-[#FFB347]/40 text-[#FFB347]
-                         text-[11px] font-black uppercase tracking-[0.12em]
-                         hover:bg-[#FFB347]/10 transition-colors"
-            >
-              Log out
-            </button>
-        </aside>
+        <AdminNavigation user={user} activePath={activePath} isRootAdmin={rootAdmin} />
 
         <motion.section
           key="admin-dashboard-content"
-          initial={false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, ease: EASE }}
-          className="p-5 md:p-7 bg-[#f7faf8] lg:h-screen overflow-y-auto"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: EASE }}
+          className="relative bg-[#f5f8f6] p-5 pt-24 md:p-8 md:pt-28 lg:h-screen lg:overflow-y-auto lg:pt-8"
         >
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <h1 className="text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
-                  Admin Dashboard
-                </h1>
-                <p className="text-[12px] text-[#1a3326]/55 mt-1">
-                  Live user insights · Auto-refreshing every 30s
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="relative" ref={notificationsRef}>
-                  <motion.button
-                    type="button"
-                    onClick={() =>
-                      setIsNotificationsOpen((prev) => {
-                        const next = !prev;
-                        if (next) {
-                          setNotificationsSeenAt(new Date());
-                        }
-                        return next;
-                      })
-                    }
-                    animate={
-                      notificationCount > 0 && !reduceMotion
-                        ? { rotate: [0, -10, 10, -6, 6, 0] }
-                        : { rotate: 0 }
-                    }
-                    transition={
-                      notificationCount > 0 && !reduceMotion
-                        ? { duration: 1.2, repeat: Infinity, repeatDelay: 2.2 }
-                        : { duration: 0.2 }
-                    }
-                    className="h-9 w-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] flex items-center justify-center relative"
-                    aria-label="Notifications"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
-                      />
-                    </svg>
-                    {notificationCount > 0 && (
-                      <>
-                        <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FFB347] px-1 text-[9px] font-black text-[#1a2b22]">
-                          {notificationCount > 99 ? "99+" : notificationCount}
-                        </span>
-                        <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#FFB347]/60 animate-ping" />
-                      </>
-                    )}
-                  </motion.button>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-[36px] md:text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
+                Welcome back
+              </h1>
+              <p className="mt-2 text-[12px] text-[#1a3326]/62 font-medium">
+                {todayLabel}. Today's system overview.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative" ref={notificationsRef}>
+                <motion.button
+                  type="button"
+                  onClick={() =>
+                    setIsNotificationsOpen((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setNotificationsSeenAt(new Date());
+                      }
+                      return next;
+                    })
+                  }
+                  animate={
+                    notificationCount > 0 && !reduceMotion
+                      ? { rotate: [0, -10, 10, -6, 6, 0] }
+                      : { rotate: 0 }
+                  }
+                  transition={
+                    notificationCount > 0 && !reduceMotion
+                      ? { duration: 1.2, repeat: Infinity, repeatDelay: 2.2 }
+                      : { duration: 0.2 }
+                  }
+                  className="h-9 w-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] flex items-center justify-center relative"
+                  aria-label="Notifications"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
+                    />
+                  </svg>
+                  {notificationCount > 0 && (
+                    <>
+                      <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FFB347] px-1 text-[9px] font-black text-[#1a2b22]">
+                        {notificationCount > 99 ? "99+" : notificationCount}
+                      </span>
+                      <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#FFB347]/60 animate-ping" />
+                    </>
+                  )}
+                </motion.button>
 
-                  <AnimatePresence>
-                    {isNotificationsOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                        transition={{ duration: 0.18, ease: EASE }}
-                        className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_18px_50px_rgba(10,40,26,0.12)] overflow-hidden z-20"
-                      >
-                        <div className="px-4 py-3 border-b border-[#ecf2ee] flex items-center justify-between">
-                          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6a7c73]">
-                            Notifications
-                          </p>
-                          <span className="text-[10px] font-semibold text-[#1a3326]/60">
-                            {notificationCount > 0 ? `${notificationCount} new` : "All caught up"}
-                          </span>
-                        </div>
-                        <div className="max-h-[280px] overflow-y-auto">
-                          {notificationItems.length === 0 ? (
-                            <div className="px-4 py-6 text-[12px] text-[#1a3326]/60">
-                              No new notifications right now.
-                            </div>
-                          ) : (
-                            notificationItems.map((item) => (
-                              <div
-                                key={item.id}
-                                className="px-4 py-3 border-b border-[#f0f4f1] last:border-b-0"
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-[12px] font-bold text-[#10261d]">
-                                    {item.title}
-                                  </p>
-                                  {item.unread && (
-                                    <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-[#FFB347]" />
-                                  )}
-                                </div>
-                                <p className="text-[11px] text-[#1a3326]/60 mt-1">
-                                  {item.body}
+                <AnimatePresence>
+                  {isNotificationsOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      transition={{ duration: 0.18, ease: EASE }}
+                      className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_18px_50px_rgba(10,40,26,0.12)] overflow-hidden z-20"
+                    >
+                      <div className="px-4 py-3 border-b border-[#ecf2ee] flex items-center justify-between">
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6a7c73]">
+                          Notifications
+                        </p>
+                        <span className="text-[10px] font-semibold text-[#1a3326]/60">
+                          {notificationCount > 0 ? `${notificationCount} new` : "All caught up"}
+                        </span>
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto">
+                        {notificationItems.length === 0 ? (
+                          <div className="px-4 py-6 text-[12px] text-[#1a3326]/60">
+                            No new notifications right now.
+                          </div>
+                        ) : (
+                          notificationItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="px-4 py-3 border-b border-[#f0f4f1] last:border-b-0"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-[12px] font-bold text-[#10261d]">
+                                  {item.title}
                                 </p>
-                                <p className="text-[10px] text-[#1a3326]/45 mt-1">
-                                  {item.meta}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsNotificationsOpen(false);
-                                    navigate(item.path);
-                                  }}
-                                  className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]"
-                                >
-                                  {item.action}
-                                </button>
+                                {item.unread && (
+                                  <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-[#FFB347]" />
+                                )}
                               </div>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                              <p className="text-[11px] text-[#1a3326]/60 mt-1">
+                                {item.body}
+                              </p>
+                              <p className="text-[10px] text-[#1a3326]/45 mt-1">
+                                {item.meta}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsNotificationsOpen(false);
+                                  navigate(item.path);
+                                }}
+                                className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]"
+                              >
+                                {item.action}
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <button
+                type="button"
+                onClick={() => void fetchUsers()}
+                disabled={loadingUsers || isRefreshing}
+                className="h-10 w-10 flex items-center justify-center rounded-full border border-[#d7e4dd] bg-white text-[#25473a] hover:bg-[#f0f4f1] transition-colors disabled:opacity-50 group"
+                title="Refresh Dashboard"
+              >
+                <svg className={`w-4 h-4 text-[#046241] group-hover:scale-110 transition-transform ${loadingUsers || isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {loadError && (
+            <div className="mb-4 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-3.5 py-2.5 text-[12px] font-semibold text-[#8a2626]">
+              {loadError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6">
+            <PremiumStatCard
+              title="Total accounts"
+              value={loadingUsers ? "—" : totalUsers}
+              subtitle={`${newUsers7d} joined this week`}
+              trend="up"
+              trendValue="Active"
+            />
+            <PremiumStatCard
+              title="Total Applicants"
+              value={loadingUsers ? "—" : totalApplicants}
+              subtitle={`${newApplicants7d} this week`}
+              trend="up"
+              trendValue={`${acceptedApplicants} Hired`}
+            />
+            <PremiumStatCard
+              title="Active today"
+              value={loadingUsers ? "—" : activeToday}
+              trend="neutral"
+              trendValue="Live"
+            />
+            <PremiumStatCard
+              title="Pending setup"
+              value={loadingUsers ? "—" : pendingUsers}
+              subtitle="Users awaiting verification"
+              trend={pendingUsers > 0 ? "down" : "neutral"}
+              trendValue={pendingUsers > 0 ? "Action needed" : "-"}
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <BarChart
+              title="New users"
+              subtitle="Signups in the last 7 days"
+              series={signupSeries}
+              color="#0f6b4d"
+            />
+            <BarChart
+              title="Active users"
+              subtitle="Last seen in the last 7 days"
+              series={activeSeries}
+              color="#FFB347"
+            />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
+            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
+              <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex items-center justify-between">
+                <h2 className="text-[23px] font-black text-[#10261d]">New users</h2>
                 <button
                   type="button"
-                  onClick={() => void fetchUsers()}
-                  className="h-9 px-4 rounded-full border border-[#d7e4dd] bg-white text-[10px] font-black uppercase tracking-[0.12em] text-[#25473a]"
+                  onClick={() => navigate("/admin/users")}
+                  className="text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]"
                 >
-                  {isRefreshing ? "Refreshing..." : "Refresh"}
+                  View all
                 </button>
-                <div className="h-9 px-4 rounded-full border border-[#d7e4dd] bg-white text-[10px] font-black uppercase tracking-[0.12em] text-[#25473a] flex items-center">
-                  {lastSyncAt ? `Last sync ${formatRelativeTime(lastSyncAt.toISOString())}` : "Sync pending"}
-                </div>
               </div>
-            </div>
-
-            {loadError && (
-              <div className="mb-4 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-3.5 py-2.5 text-[12px] font-semibold text-[#8a2626]">
-                {loadError}
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-                <p className="text-[12px] text-[#1a3326]/62">Total users</p>
-                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : <CountUpNumber value={totalUsers} />}
-                </p>
-                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  New this week: {loadingUsers ? "—" : <CountUpNumber value={newUsers7d} />}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-                <p className="text-[12px] text-[#1a3326]/62">Active today</p>
-                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : <CountUpNumber value={activeToday} />}
-                </p>
-                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  Pending invites: {loadingUsers ? "—" : <CountUpNumber value={pendingUsers} />}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-                <p className="text-[12px] text-[#1a3326]/62">Admin accounts</p>
-                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : <CountUpNumber value={adminUsers} />}
-                </p>
-                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  Super admins: {loadingUsers ? "—" : <CountUpNumber value={roleBreakdown["SUPER ADMIN"]} />}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
-                <p className="text-[12px] text-[#1a3326]/62">Total applicants</p>
-                <p className="mt-1 text-[35px] leading-none font-black text-[#12261d]">
-                  {loadingUsers ? "—" : <CountUpNumber value={totalApplicants} />}
-                </p>
-                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  New this week: {loadingUsers ? "—" : <CountUpNumber value={newApplicants7d} />}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4">
-                <p className="text-[12px] text-[#0051a8]/70">Accepted applicants</p>
-                <p className="mt-1 text-[35px] leading-none font-black text-[#0051a8]">
-                  {loadingUsers ? "—" : <CountUpNumber value={acceptedApplicants} />}
-                </p>
-                <p className="mt-2 text-[11px] font-semibold text-[#1a3326]/55">
-                  Conversion tracking
-                </p>
-              </div>
-              <div className="rounded-2xl border border-[#e0e9e4] bg-[#f9faf9] p-4 flex flex-col justify-center items-start">
-                  <p className="text-[12px] text-[#1a3326]/62 mb-3">Quick Actions</p>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/applicants")}
-                    className="h-10 px-5 rounded-lg border border-[#046241] text-[#046241] text-[11px] font-black uppercase tracking-[0.1em] hover:bg-[#046241] hover:text-white transition-colors w-full text-center"
-                  >
-                    Review Applicants
-                  </button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <BarChart
-                title="New users"
-                subtitle="Signups in the last 7 days"
-                series={signupSeries}
-                color="#0f6b4d"
-              />
-              <BarChart
-                title="Active users"
-                subtitle="Last seen in the last 7 days"
-                series={activeSeries}
-                color="#FFB347"
-              />
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
-              <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-                <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex items-center justify-between">
-                  <h2 className="text-[23px] font-black text-[#10261d]">New users</h2>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin/users")}
-                    className="text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]"
-                  >
-                    View all
-                  </button>
-                </div>
-                <div className="divide-y divide-[#ecf2ee]">
-                  {loadingUsers ? (
-                    <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
-                      Loading users from database...
-                    </div>
-                  ) : latestUsers.length === 0 ? (
-                    <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
-                      No users found.
-                    </div>
-                  ) : (
-                    latestUsers.map((entry) => (
-                      <div key={entry.id} className="px-4 py-3 flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full border border-[#d8e5de] bg-[#f4f8f6] overflow-hidden flex items-center justify-center text-[11px] font-black text-[#244235]">
-                          {entry.avatarUrl ? (
-                            <img src={entry.avatarUrl} alt={`${entry.name} avatar`} className="w-full h-full object-cover" />
-                          ) : (
-                            <span>{initials(entry.name) || "U"}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-bold truncate text-[#0f2318]">{entry.name}</p>
-                          <p className="text-[11px] text-[#1a3326]/55 truncate">{entry.email}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/50">
-                            {entry.displayId || "PH000"}
-                          </p>
-                          <p className="text-[11px] text-[#1a3326]/55">{formatDate(entry.createdAt)}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-                <div className="px-4 py-3.5 border-b border-[#ecf2ee]">
-                  <h2 className="text-[19px] font-black text-[#10261d]">Realtime analytics</h2>
-                  <p className="text-[11px] text-[#1a3326]/55">Today, {todayLabel}</p>
-                </div>
-                <div className="p-4 space-y-4">
-                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Role mix</p>
-                    <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
-                      <div className="flex items-center justify-between">
-                        <span>Users</span>
-                        <span>{roleBreakdown.USER}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Admins</span>
-                        <span>{roleBreakdown.ADMIN}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Super admins</span>
-                        <span>{roleBreakdown["SUPER ADMIN"]}</span>
-                      </div>
-                    </div>
+              <div className="divide-y divide-[#ecf2ee]">
+                {loadingUsers ? (
+                  <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
+                    Loading users from database...
                   </div>
-
-                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Status</p>
-                    <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
-                      <div className="flex items-center justify-between">
-                        <span>Active</span>
-                        <span>{statusBreakdown.Active}</span>
+                ) : latestUsers.length === 0 ? (
+                  <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
+                    No users found.
+                  </div>
+                ) : (
+                  latestUsers.map((entry) => (
+                    <div key={entry.id} className="px-4 py-3 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full border border-[#d8e5de] bg-[#f4f8f6] overflow-hidden flex items-center justify-center text-[11px] font-black text-[#244235]">
+                        {entry.avatarUrl ? (
+                          <img src={entry.avatarUrl} alt={`${entry.name} avatar`} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{initials(entry.name) || "U"}</span>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>Pending</span>
-                        <span>{statusBreakdown.Pending}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-bold truncate text-[#0f2318]">{entry.name}</p>
+                        <p className="text-[11px] text-[#1a3326]/55 truncate">{entry.email}</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>Suspended</span>
-                        <span>{statusBreakdown.Suspended}</span>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/50">
+                          {entry.displayId || "PH000"}
+                        </p>
+                        <p className="text-[11px] text-[#1a3326]/55">{formatDate(entry.createdAt)}</p>
                       </div>
                     </div>
-                  </div>
+                  ))
+                )}
+              </div>
+            </section>
 
-                  <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Recently active</p>
-                    <div className="mt-2 space-y-2">
-                      {recentlyActive.length === 0 ? (
-                        <p className="text-[12px] text-[#1a3326]/55">No recent activity.</p>
-                      ) : (
-                        recentlyActive.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between text-[12px] text-[#10261d]">
-                            <span className="truncate">{entry.name}</span>
-                            <span className="text-[#1a3326]/55">{formatRelativeTime(entry.lastSeen)}</span>
-                          </div>
-                        ))
-                      )}
+            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
+              <div className="px-4 py-3.5 border-b border-[#ecf2ee]">
+                <h2 className="text-[19px] font-black text-[#10261d]">Realtime analytics</h2>
+                <p className="text-[11px] text-[#1a3326]/55">Today, {todayLabel}</p>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Role mix</p>
+                  <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
+                    <div className="flex items-center justify-between">
+                      <span>Users</span>
+                      <span>{roleBreakdown.USER}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Admins</span>
+                      <span>{roleBreakdown.ADMIN}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Super admins</span>
+                      <span>{roleBreakdown["SUPER ADMIN"]}</span>
                     </div>
                   </div>
                 </div>
-              </section>
-            </div>
+
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Status</p>
+                  <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
+                    <div className="flex items-center justify-between">
+                      <span>Active</span>
+                      <span>{statusBreakdown.Active}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Pending</span>
+                      <span>{statusBreakdown.Pending}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Suspended</span>
+                      <span>{statusBreakdown.Suspended}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Recently active</p>
+                  <div className="mt-2 space-y-2">
+                    {recentlyActive.length === 0 ? (
+                      <p className="text-[12px] text-[#1a3326]/55">No recent activity.</p>
+                    ) : (
+                      recentlyActive.map((entry) => (
+                        <div key={entry.id} className="flex items-center justify-between text-[12px] text-[#10261d]">
+                          <span className="truncate">{entry.name}</span>
+                          <span className="text-[#1a3326]/55">{formatRelativeTime(entry.lastSeen)}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
         </motion.section>
       </section>
     </main>
