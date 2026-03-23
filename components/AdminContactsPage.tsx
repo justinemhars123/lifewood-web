@@ -10,6 +10,11 @@ import {
 } from "../auth";
 import AdminNavigation from "./AdminNavigation";
 import { supabase } from "../supabaseClient";
+import emailjs from '@emailjs/browser';
+
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_cpyba2r";
+const EMAILJS_DECISION_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_DECISION_TEMPLATE_ID || "template_qbegp0m";
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "bbHE7xH3WprnKw8i8";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -36,6 +41,7 @@ function navigate(path: string) {
 }
 
 function statusPillClass(status: string) {
+  if (status === "Replied") return "bg-[#eaf1ed] text-[#2b5242]";
   if (status === "Reviewed") return "bg-[#e6f7ef] text-[#046241]";
   if (status === "New") return "bg-[#fff4e5] text-[#915700]";
   return "bg-[#eaf1ed] text-[#2b5242]";
@@ -109,6 +115,10 @@ export default function AdminContactsPage() {
   const [viewContact, setViewContact] = useState<ContactEntry | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [pendingReviewId, setPendingReviewId] = useState<string | null>(null);
+  const [replyEmailModal, setReplyEmailModal] = useState<ContactEntry | null>(null);
+  const [emailMessage, setEmailMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [successModalStatus, setSuccessModalStatus] = useState<"Replied" | null>(null);
 
   useEffect(() => {
     const sync = () => setUser(getAuthUser());
@@ -194,6 +204,47 @@ export default function AdminContactsPage() {
       }
     } catch (err: any) {
       alert("Failed to update status: " + err.message);
+    }
+  };
+
+  const openReplyModal = (contact: ContactEntry) => {
+    const firstName = contact.name.trim().split(" ")[0] || "there";
+    const defaultMessage = `Hi ${firstName},\n\nThank you for reaching out to us.\n\n[Type your reply here...]\n\nBest regards,\nThe Lifewood Team`;
+    setEmailMessage(defaultMessage);
+    setReplyEmailModal(contact);
+  };
+
+  const handleSendReply = async () => {
+    if (!replyEmailModal) return;
+    setIsSending(true);
+
+    try {
+      const templateParams = {
+        to_name: replyEmailModal.name,
+        to_email: replyEmailModal.email,
+        message: emailMessage,
+        reply_to: "admin@lifewood.com",
+      };
+
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_DECISION_TEMPLATE_ID,
+        templateParams,
+        EMAILJS_PUBLIC_KEY
+      );
+
+      if (replyEmailModal.status !== "Replied") {
+        await handleUpdateStatus(replyEmailModal.id, "Replied");
+      }
+
+      setReplyEmailModal(null);
+      setSuccessModalStatus("Replied");
+    } catch (err: any) {
+      console.error("EmailJS Error:", err);
+      const errorMsg = err.text || err.message || "Unknown error";
+      alert("Failed to send reply: " + errorMsg);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -433,7 +484,17 @@ export default function AdminContactsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
+                <div className="mt-6 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                        closeContactDetails();
+                        openReplyModal(viewContact);
+                    }}
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-[#046241] px-5 text-[11px] font-black uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#034d33] shadow-[0_4px_12px_rgba(4,98,65,0.2)]"
+                  >
+                    Reply via Email
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(viewContact.id)}
@@ -479,6 +540,101 @@ export default function AdminContactsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+          {/* Reply Modal */}
+          {replyEmailModal && (
+            <div className="fixed inset-0 z-[100] bg-[#06140f]/60 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="w-full max-w-[540px] rounded-3xl border border-[#dbe7e1] bg-white p-6 shadow-2xl relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-[#046241]/[0.05] to-transparent rounded-bl-full pointer-events-none" />
+                <h3 className="text-[20px] font-black tracking-[-0.02em] text-[#10261d] mb-1">
+                  Reply to Contact
+                </h3>
+                <p className="text-[12px] text-[#1a3326]/60 mb-5">
+                  Send a response to {replyEmailModal.name} via EmailJS.
+                </p>
+
+                <div className="space-y-4 relative z-10">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/60 mb-1.5 ml-1">
+                      Message Content
+                    </label>
+                    <textarea
+                      value={emailMessage}
+                      onChange={(e) => setEmailMessage(e.target.value)}
+                      rows={8}
+                      className="w-full rounded-xl border border-[#d9e6df] bg-[#f9fbfa] px-4 py-3 text-[13px] text-[#10261d] outline-none transition-colors focus:border-[#046241] focus:bg-white resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex items-center justify-end gap-3 relative z-10">
+                  <button
+                    type="button"
+                    onClick={() => setReplyEmailModal(null)}
+                    disabled={isSending}
+                    className="h-10 px-5 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5] transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendReply}
+                    disabled={isSending || !emailMessage.trim()}
+                    className="h-10 px-6 rounded-xl bg-[#046241] text-white text-[11px] font-black uppercase tracking-[0.1em] hover:opacity-90 transition-opacity shadow-[0_4px_14px_rgba(4,98,65,0.25)] flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSending ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send Reply</span>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
+          {/* Success Modal */}
+          {successModalStatus === "Replied" && (
+            <div className="fixed inset-0 z-[110] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="w-full max-w-[400px] rounded-3xl border border-[#dbe7e1] bg-white p-7 shadow-2xl relative overflow-hidden text-center flex flex-col items-center"
+              >
+                <div className="w-16 h-16 rounded-full bg-[#046241]/10 flex items-center justify-center mb-5 text-[#046241]">
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-[22px] font-black tracking-[-0.02em] text-[#10261d] mb-2">
+                  Reply Sent!
+                </h3>
+                <p className="text-[13px] text-[#1a3326]/70 mb-7 leading-relaxed">
+                  Your email has been successfully delivered via EmailJS to the contact's inbox.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSuccessModalStatus(null)}
+                  className="w-full h-11 rounded-xl bg-[#046241] text-white text-[12px] font-black uppercase tracking-[0.1em] hover:opacity-90 transition-opacity shadow-[0_4px_14px_rgba(4,98,65,0.25)]"
+                >
+                  Close
+                </button>
+              </motion.div>
             </div>
           )}
         </motion.section>
