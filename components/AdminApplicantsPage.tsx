@@ -65,6 +65,7 @@ function statusPillClass(status: string) {
   if (status === "Pending Interview") return "bg-[#fff8e1] text-[#b38a00] border border-[#ffecb3]";
   if (status === "Interview Completed") return "bg-[#f4eaf9] text-[#712b91] border border-[#f0dfff]";
   if (status === "Accepted") return "bg-[#eaf4ff] text-[#0051a8] border border-[#d6eaff]";
+  if (status === "HR Interview") return "bg-[#e8ebff] text-[#3b5998] border border-[#d1d9ff]";
   return "bg-[#eaf1ed] text-[#2b5242]";
 }
 
@@ -185,10 +186,13 @@ export default function AdminApplicantsPage() {
   const [viewPdfUrl, setViewPdfUrl] = useState<string | null>(null);
   const [acceptEmailModal, setAcceptEmailModal] = useState<Applicant | null>(null);
   const [rejectEmailModal, setRejectEmailModal] = useState<Applicant | null>(null);
+  const [hrEmailModal, setHrEmailModal] = useState<Applicant | null>(null);
+  const [hrSchedule, setHrSchedule] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [successModalStatus, setSuccessModalStatus] = useState<"Accepted" | "Rejected" | "Pending Interview" | null>(null);
+  const [successModalStatus, setSuccessModalStatus] = useState<"Accepted" | "Rejected" | "Pending Interview" | "HR Interview" | null>(null);
   const [emailMessage, setEmailMessage] = useState("");
   const [rejectMessage, setRejectMessage] = useState("");
+  const [hrEmailMessage, setHrEmailMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [pendingReviewId, setPendingReviewId] = useState<string | null>(null);
   const interviewRequestIdRef = useRef(0);
@@ -223,6 +227,7 @@ export default function AdminApplicantsPage() {
     if (status === "Interview Completed") return "Accept Applicant";
     if (status === "Pending Interview") return "AI Screening Sent";
     if (status === "Accepted") return "Accepted";
+    if (status === "HR Interview") return "HR Interview Scheduled";
     if (status === "Rejected") return "Rejected";
     return "Send Email for AI Screening";
   };
@@ -598,6 +603,44 @@ export default function AdminApplicantsPage() {
     setRejectEmailModal(applicant);
   };
 
+  const openHrInterviewModal = (applicant: Applicant) => {
+    setHrSchedule("");
+    const template = `Dear ${applicant.first_name},\n\nCongratulations! You have passed the AI screening phase for the ${applicant.position} role at Lifewood.\n\nWe would like to invite you to a final HR interview with our team.\n\nOur HR department will contact you shortly to schedule the exact date and time.\n\nBest regards,\nThe Lifewood Team`;
+    setHrEmailMessage(template);
+    setHrEmailModal(applicant);
+  };
+
+  const handleScheduleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSchedule = e.target.value;
+    setHrSchedule(newSchedule);
+    
+    if (!hrEmailModal) return;
+
+    let formattedDate = newSchedule;
+    if (newSchedule) {
+      const d = new Date(newSchedule);
+      if (!Number.isNaN(d.getTime())) {
+        formattedDate = d.toLocaleString("en-US", {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+      }
+    }
+
+    const scheduleText = newSchedule 
+      ? `Your HR interview has been scheduled for ${formattedDate} at our office:\nGround Floor i2 Building, Jose Del Mar Street Cebu IT Park, Asia Town, Salinas Drive Apas Lahug, Cebu City, 6000.` 
+      : `Our HR department will contact you shortly to schedule the exact date and time.`;
+
+    const template = `Dear ${hrEmailModal.first_name},\n\nCongratulations! You have passed the AI screening phase for the ${hrEmailModal.position} role at Lifewood.\n\nWe would like to invite you to a final HR interview with our team.\n\n${scheduleText}\n\nBest regards,\nThe Lifewood Team`;
+    
+    setHrEmailMessage(template);
+  };
+
   const buildEmailTemplateParams = (options: {
     applicant: Applicant;
     message: string;
@@ -716,6 +759,50 @@ export default function AdminApplicantsPage() {
       console.error("EmailJS Error:", err);
       const errorMsg = err.text || err.message || "Unknown error";
       alert("Failed to send rejection: " + errorMsg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendHrInterview = async () => {
+    if (!hrEmailModal) return;
+    setIsSending(true);
+
+    try {
+      const { error } = await supabase
+        .from("applicants")
+        .update({ status: "HR Interview" })
+        .eq("id", hrEmailModal.id);
+
+      if (error) throw error;
+
+      const templateParams = buildEmailTemplateParams({
+        applicant: hrEmailModal,
+        message: hrEmailMessage,
+        subject: `Update on your application at Lifewood - HR Interview`,
+        includeInterviewLink: false,
+      });
+
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID,
+        templateParams,
+        EMAILJS_PUBLIC_KEY
+      );
+
+      setApplicants((prev) =>
+        prev.map((a) => (a.id === hrEmailModal.id ? { ...a, status: "HR Interview" } : a))
+      );
+      if (viewApplicant?.id === hrEmailModal.id) {
+        setViewApplicant((prev) => (prev ? { ...prev, status: "HR Interview" } : prev));
+      }
+
+      setHrEmailModal(null);
+      setSuccessModalStatus("HR Interview");
+    } catch (err: any) {
+      console.error("EmailJS Error:", err);
+      const errorMsg = err.text || err.message || "Unknown error";
+      alert("Failed to send HR interview email: " + errorMsg);
     } finally {
       setIsSending(false);
     }
@@ -841,6 +928,7 @@ export default function AdminApplicantsPage() {
                 >
                   <option value="all">All Statuses</option>
                   <option value="Accepted">Accepted</option>
+                  <option value="HR Interview">HR Interview</option>
                   <option value="Rejected">Rejected</option>
                 </select>
                 <div className="h-9 w-full sm:w-[250px] rounded-lg border border-[#d9e6df] bg-[#f9fbfa] px-3 flex items-center">
@@ -1028,21 +1116,22 @@ export default function AdminApplicantsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-8 pt-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 border-t border-[#e6eee9]">
-                      <div className="flex items-center gap-3">
+                    <div className="mt-8 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 border-t border-[#e6eee9]">
+                      <div className="flex items-center gap-3 shrink-0">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#1a3326]/55">Status</span>
                         <div className="relative">
                           <select
                             value={viewApplicant.status}
                             onChange={(e) => handleUpdateStatus(viewApplicant.id, e.target.value)}
-                            disabled={["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status)}
-                            className={`h-9 appearance-none rounded-lg border border-[#d8e5de] bg-white pl-3 pr-8 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${["Pending Interview", "Interview Completed", "Accepted", "Rejected"].includes(viewApplicant.status) ? "opacity-70 cursor-not-allowed" : ""}`}
+                            disabled={["Pending Interview", "Interview Completed", "Accepted", "HR Interview", "Rejected"].includes(viewApplicant.status)}
+                            className={`h-9 appearance-none rounded-lg border border-[#d8e5de] bg-white pl-3 pr-8 text-[12px] font-semibold text-[#163126] outline-none focus:border-[#046241] ${["Pending Interview", "Interview Completed", "Accepted", "HR Interview", "Rejected"].includes(viewApplicant.status) ? "opacity-70 cursor-not-allowed" : ""}`}
                           >
                             <option value="New">New</option>
                             <option value="Reviewed">Reviewed</option>
                             <option value="Pending Interview">Pending Interview</option>
                             <option value="Interview Completed">Interview Completed</option>
                             <option value="Accepted">Accepted</option>
+                            <option value="HR Interview">HR Interview</option>
                             <option value="Rejected">Rejected</option>
                           </select>
                           <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#1a3326]/55">
@@ -1051,29 +1140,41 @@ export default function AdminApplicantsPage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => openAcceptModal(viewApplicant)}
-                          disabled={!isPrimaryApplicantActionEnabled(viewApplicant.status)}
-                          className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!isPrimaryApplicantActionEnabled(viewApplicant.status)
-                            ? "bg-[#f3f8f5] border-[#d8e5de] text-[#869b90] cursor-not-allowed"
-                            : "bg-[#046241] text-white hover:bg-[#034d33] border-transparent"
-                            }`}
-                        >
-                          {getPrimaryApplicantActionLabel(viewApplicant.status)}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openRejectModal(viewApplicant)}
-                          disabled={!canRejectAfterInterview(viewApplicant.status)}
-                          className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!canRejectAfterInterview(viewApplicant.status)
-                            ? "bg-red-600/5 text-red-600/40 cursor-not-allowed border-red-600/10"
-                            : "bg-red-600 text-white hover:bg-red-700 border-transparent"
-                            }`}
-                        >
-                          {viewApplicant.status === "Rejected" ? "Rejected" : "Reject"}
-                        </button>
+                      <div className="flex flex-wrap items-center sm:justify-end gap-3 flex-1">
+                        {viewApplicant.status === "Accepted" ? (
+                          <button
+                            type="button"
+                            onClick={() => openHrInterviewModal(viewApplicant)}
+                            className="h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border bg-[#046241] text-white hover:bg-[#034d33] border-transparent"
+                          >
+                            Proceed to HR Interview
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => openAcceptModal(viewApplicant)}
+                            disabled={!isPrimaryApplicantActionEnabled(viewApplicant.status)}
+                            className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!isPrimaryApplicantActionEnabled(viewApplicant.status)
+                              ? "bg-[#f3f8f5] border-[#d8e5de] text-[#869b90] cursor-not-allowed"
+                              : "bg-[#046241] text-white hover:bg-[#034d33] border-transparent"
+                              }`}
+                          >
+                            {getPrimaryApplicantActionLabel(viewApplicant.status)}
+                          </button>
+                        )}
+                        {viewApplicant.status !== "Accepted" && viewApplicant.status !== "HR Interview" && (
+                          <button
+                            type="button"
+                            onClick={() => openRejectModal(viewApplicant)}
+                            disabled={!canRejectAfterInterview(viewApplicant.status)}
+                            className={`h-9 px-5 rounded-lg text-[12px] font-bold transition-colors border ${!canRejectAfterInterview(viewApplicant.status)
+                              ? "bg-red-600/5 text-red-600/40 cursor-not-allowed border-red-600/10"
+                              : "bg-red-600 text-white hover:bg-red-700 border-transparent"
+                              }`}
+                          >
+                            {viewApplicant.status === "Rejected" ? "Rejected" : "Reject"}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleDelete(viewApplicant.id)}
@@ -1344,6 +1445,90 @@ export default function AdminApplicantsPage() {
             </div>
           )}
 
+          {hrEmailModal && (
+            <div className="fixed inset-0 z-[100] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <div className="w-full max-w-[600px] rounded-2xl border border-[#dbe7e1] bg-white overflow-hidden shadow-2xl">
+                <div className="px-5 py-4 border-b border-[#e0e9e4] flex items-center justify-between bg-[#fcfdfc]">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#046241] mb-1">
+                      Send Update
+                    </p>
+                    <h3 className="text-[18px] font-black tracking-[-0.02em] text-[#10261d]">
+                      Invite {hrEmailModal.first_name} to HR Interview
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setHrEmailModal(null)}
+                    disabled={isSending}
+                    className="h-9 px-4 rounded-xl border border-[#d8e5de] text-[11px] font-black uppercase tracking-[0.1em] text-[#1a3326]/70 hover:bg-[#f3f8f5] disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="p-5">
+                  <p className="text-[12px] text-[#1a3326]/70 mb-3">
+                    Review the HR interview invitation email below before sending.
+                  </p>
+
+                  <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/60 mb-1.5">
+                        To:
+                      </label>
+                      <div className="h-10 px-3 flex items-center rounded-lg border border-[#e0e9e4] bg-[#f7faf8] text-[13px] font-medium text-[#10261d]">
+                        {hrEmailModal.email}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/60 mb-1.5 flex items-center justify-between">
+                        <span>Schedule:</span>
+                        <span className="text-[9px] text-[#1a3326]/40">(Optional)</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={hrSchedule}
+                        onChange={handleScheduleChange}
+                        className="h-10 w-full px-3 rounded-lg border border-[#d8e5de] bg-white text-[13px] font-medium text-[#163126] outline-none focus:border-[#046241]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/60 mb-1.5">
+                      Message:
+                    </label>
+                    <textarea
+                      value={hrEmailMessage}
+                      onChange={(e) => setHrEmailMessage(e.target.value)}
+                      className="w-full h-48 rounded-xl border border-[#d8e5de] bg-white p-3 text-[13px] text-[#163126] outline-none focus:border-[#046241] resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 mt-2">
+                    <button
+                      type="button"
+                      onClick={handleSendHrInterview}
+                      disabled={isSending || !hrEmailMessage.trim()}
+                      className="h-10 px-6 rounded-xl bg-[#046241] text-white text-[11px] font-black uppercase tracking-[0.1em] shadow-[0_4px_14px_rgba(4,98,65,0.25)] hover:bg-[#034d33] transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {isSending ? (
+                        "Sending..."
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                          Send Email & Proceed
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {deleteConfirmId && (
             <div className="fixed inset-0 z-[110] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="w-full max-w-[400px] rounded-2xl border border-[#dbe7e1] bg-white p-6 shadow-2xl">
@@ -1384,7 +1569,7 @@ export default function AdminApplicantsPage() {
             <div className="fixed inset-0 z-[110] bg-[#06140f]/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="w-full max-w-[400px] rounded-2xl border border-[#dbe7e1] bg-white p-6 shadow-2xl">
                 <div className="flex flex-col items-center text-center">
-                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
+                  <div className={`w-14 h-14 rounded-full border flex items-center justify-center mb-4 ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview" || successModalStatus === "HR Interview"
                     ? "bg-[#f3f8f5] border-[#d8e5de] text-[#046241]"
                     : "bg-[#fff5f5] border-[#f2d9d9] text-red-600"
                     }`}>
@@ -1400,12 +1585,14 @@ export default function AdminApplicantsPage() {
                       ? "The AI screening email has been sent to the applicant. Their status is now \"Pending Interview\"."
                       : successModalStatus === "Accepted"
                         ? "The acceptance email has been sent to the applicant. Their status is now \"Accepted\"."
-                        : "The rejection email has been sent to the applicant. Their status is now \"Rejected\"."}
+                        : successModalStatus === "HR Interview"
+                          ? "The HR interview invitation email has been sent. Their status is now \"HR Interview\"."
+                          : "The rejection email has been sent to the applicant. Their status is now \"Rejected\"."}
                   </p>
                   <button
                     type="button"
                     onClick={() => setSuccessModalStatus(null)}
-                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview"
+                    className={`w-full h-10 rounded-xl text-white text-[11px] font-black uppercase tracking-[0.1em] transition-colors shadow-[0_4px_14px_rgba(4,98,65,0.25)] ${successModalStatus === "Accepted" || successModalStatus === "Pending Interview" || successModalStatus === "HR Interview"
                       ? "bg-[#046241] hover:bg-[#034d33]"
                       : "bg-red-600 hover:bg-red-700 shadow-[0_4px_14px_rgba(220,38,38,0.25)]"
                       }`}

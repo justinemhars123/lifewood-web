@@ -1,15 +1,17 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import {
   motion,
+  useReducedMotion,
   useMotionValue,
   useSpring,
   useInView,
 } from "framer-motion";
-import OfficeMap from "./OfficeMap";
 
-// ─── Data ─────────────────────────────────────────────────────────────────
-const PARALLAX_IMAGE =
-  "https://framerusercontent.com/images/7RZ9ESz7UTTmxn6ifh8I9jHlHA.png?width=1004&height=591";
+const OfficeMap = React.lazy(() => import('./OfficeMap'));
+
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+const PARALLAX_IMAGE = "https://framerusercontent.com/images/7RZ9ESz7UTTmxn6ifh8I9jHlHA.png?width=1004&height=591";
 
 const IMPACT_OFFICES = [
   { city: "South Africa", lat: -30.5595, lng: 22.9375 },
@@ -40,28 +42,81 @@ const ARTICLES = [
     label: "Partnership",
     body: "In partnership with our philanthropic partners, Lifewood has expanded operations in South Africa, Nigeria, Republic of the Congo, Democratic Republic of the Congo, Ghana, Madagascar, Benin, Uganda, Kenya, Ivory Coast, Egypt, Ethiopia, Niger, Tanzania, Namibia, Zambia, Zimbabwe, Liberia, Sierra Leone, and Bangladesh.",
     img: "https://framerusercontent.com/images/H6g74f7ON0rYqleh3DuDC7wLLn4.png?width=1004&height=591",
-    imgAlt: "Partnership impact",
   },
   {
     num: "02",
     label: "Application",
     body: "This requires the application of our methods and experience for the development of people in under resourced economies.",
     img: "https://framerusercontent.com/images/06PBWoX2dQvZzJ4GCFpMLVH9ZA.jpg?width=3458&height=5187",
-    imgAlt: "Application impact",
-    flip: true,
   },
   {
     num: "03",
     label: "Expanding",
     body: "We are expanding access to training, establishing equitable wage structures and career and leadership progression to create sustainable change, by equipping individuals to take the lead and grow the business for themselves for the long term benefit of everyone.",
     img: "https://framerusercontent.com/images/YuQdLXDoPq70vyVGWddKObRr4.png?width=599&height=394",
-    imgAlt: "Expanding impact",
   },
 ];
 
+const STATS = [
+  { value: "20+", label: "Countries", detail: "across Africa & Asia" },
+  { value: "500+", label: "Communities", detail: "directly supported" },
+  { value: "10K+", label: "Livelihoods", detail: "created & sustained" },
+];
 
+function useCounter(target: number, duration = 1400) {
+  const [val, setVal] = useState(0);
+  const rafRef = useRef<number | null>(null);
+  const ref = useRef<HTMLElement | null>(null);
 
-// ─── Global CSS ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const run = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      setVal(0);
+      const start = performance.now();
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setVal(Math.round(eased * target));
+        if (t < 1) { rafRef.current = requestAnimationFrame(step); }
+      };
+      rafRef.current = requestAnimationFrame(step);
+    };
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) run();
+    }, { threshold: 0.3 });
+    io.observe(el);
+    return () => { io.disconnect(); if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target, duration]);
+
+  return { val, ref };
+}
+
+function AnimatedStat({ valueString, label, detail }: { valueString: string, label: string, detail: string }) {
+  const match = valueString.match(/^([\d,.]+)(.*)$/);
+  const target = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+  const suffix = match ? match[2] : '';
+  const { val, ref } = useCounter(target, 1400);
+
+  return (
+    <article ref={ref} className="h-full rounded-[28px] border border-[#d4e4db] bg-white p-7 shadow-[0_10px_35px_rgba(4,98,65,0.05)] dark:border-[#2a4535] dark:bg-[#122318]">
+      <p className="text-4xl font-black tracking-[-0.04em] text-[#046241] dark:text-[#FFB347] md:text-5xl">
+        {val}{suffix}
+      </p>
+      <h3 className="mt-4 text-[13px] font-black uppercase tracking-[0.18em] text-[#0f2318] dark:text-white">
+        {label}
+      </h3>
+      <p className="mt-3 text-sm leading-7 text-[#2d5040] dark:text-[#a8c4b4]">{detail}</p>
+    </article>
+  );
+}
+
+function navigate(path: string) {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
 function GlobalStyles() {
   return (
     <style>{`
@@ -74,15 +129,6 @@ function GlobalStyles() {
         20%  { opacity:.7; }
         100% { transform:translateX(140%); opacity:0; }
       }
-      @keyframes _lw-float {
-        0%,100% { transform:translateY(0); }
-        50%     { transform:translateY(-6px); }
-      }
-      @keyframes _lw-spin  { to { transform:rotate(360deg); } }
-      @keyframes _lw-glow  {
-        0%,100% { box-shadow:0 0 14px 4px rgba(255,179,71,.45),0 0 26px 9px rgba(255,179,71,.2); }
-        50%     { box-shadow:0 0 22px 7px rgba(255,179,71,.7),0 0 38px 14px rgba(255,179,71,.3); }
-      }
       @keyframes _lw-shine {
         0%   { transform:translateX(-130%) skewX(-22deg); opacity:0; }
         15%  { opacity:.18; }
@@ -92,6 +138,10 @@ function GlobalStyles() {
       @keyframes _lw-pulse-ring {
         0%   { transform:scale(1); opacity:.6; }
         100% { transform:scale(2.2); opacity:0; }
+      }
+      @keyframes _lw-ticker {
+        0%   { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
       }
 
       ._lw-intro {
@@ -105,70 +155,43 @@ function GlobalStyles() {
         filter:blur(10px);
         animation:_lw-intro-beam 900ms ease-out forwards;
       }
-      ._lw-float   { animation:_lw-float 4.2s ease-in-out infinite; }
-      ._lw-spin    { animation:_lw-spin 14s linear infinite; }
-      ._lw-glow    { animation:_lw-glow 2.4s ease-in-out infinite; }
 
-      /* card tilt */
       ._lw-card {
         position:relative; overflow:hidden;
         transform-style:preserve-3d;
         transition:transform .38s cubic-bezier(.22,1,.36,1), box-shadow .38s ease;
         will-change:transform;
       }
-      ._lw-card:hover { box-shadow:0 22px 56px rgba(4,98,65,.18); }
-      .dark ._lw-card:hover { box-shadow:0 22px 56px rgba(0,0,0,.48); }
+      ._lw-card:hover { box-shadow:0 28px 64px rgba(4,98,65,.14); }
       ._lw-card-shine {
         position:absolute; inset:-45%; pointer-events:none;
-        background:linear-gradient(120deg,transparent 38%,rgba(255,255,255,.22) 50%,transparent 62%);
+        background:linear-gradient(120deg,transparent 38%,rgba(255,255,255,.18) 50%,transparent 62%);
         transform:translateX(-130%) skewX(-22deg);
         animation:_lw-shine 5s ease-in-out infinite;
       }
 
-      /* article number watermark */
-      ._lw-art-num {
-        font-size: clamp(60px, 8vw, 100px);
-        font-weight: 900;
-        line-height: 1;
-        letter-spacing: -0.04em;
-        color: transparent;
-        -webkit-text-stroke: 1px rgba(4,98,65,.08);
-        user-select: none; pointer-events: none;
+      ._lw-marquee-track {
+        display: flex;
+        width: max-content;
       }
-      .dark ._lw-art-num { -webkit-text-stroke: 1px rgba(255,255,255,.05); }
-
-      /* scroll stack */
-      ._lw-stack-scroller { position: relative; }
-      ._lw-stack-inner { position: relative; }
-      ._lw-stack-card {
-        position: relative;
-        transform-origin: top center;
-        backface-visibility: hidden;
-        will-change: transform, filter;
-      }
-      ._lw-stack-end { height: 36vh; }
+      ._lw-ticker  { animation:_lw-ticker 28s linear infinite; }
 
       @media (prefers-reduced-motion:reduce) {
-        ._lw-intro,._lw-float,._lw-spin,._lw-glow,._lw-card-shine { animation:none!important; }
+        ._lw-intro,._lw-card-shine,._lw-ticker { animation:none!important; }
         ._lw-card { transition:none!important; transform:none!important; }
-        ._lw-stack-card { transform:none!important; filter:none!important; }
         ._lw-intro { display:none!important; }
       }
     `}</style>
   );
 }
 
-// ─── Intro overlay ─────────────────────────────────────────────────────────
 function IntroOverlay() {
   const [gone, setGone] = useState(false);
   if (gone) return null;
   return <div aria-hidden className="_lw-intro" onAnimationEnd={() => setGone(true)} />;
 }
 
-// ─── Word-by-word reveal ───────────────────────────────────────────────────
-function SplitReveal({
-  text, className = "", delay = 0, tag: Tag = "span",
-}: {
+function SplitReveal({ text, className = "", delay = 0, tag: Tag = "span" }: {
   text: string; className?: string; delay?: number; tag?: keyof JSX.IntrinsicElements;
 }) {
   const ref = useRef<HTMLElement>(null);
@@ -193,28 +216,8 @@ function SplitReveal({
   );
 }
 
-// ─── Scroll-triggered fade + blur reveal ──────────────────────────────────
-function Reveal({
-  children, delay = 0, className = "", y = 28, amount = 0.12,
-}: {
-  children: React.ReactNode; delay?: number; className?: string; y?: number; amount?: number;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount });
-  return (
-    <motion.div ref={ref} className={className}
-      initial={{ opacity: 0, y, filter: "blur(5px)" }}
-      animate={inView ? { opacity: 1, y: 0, filter: "blur(0px)" } : {}}
-      transition={{ duration: 0.75, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-// ─── Magnetic link ─────────────────────────────────────────────────────────
-function MagneticLink({ href, children, className }: {
-  href: string; children: React.ReactNode; className?: string;
+function MagneticLink({ href, children, className, onClick }: {
+  href?: string; children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const x = useMotionValue(0); const y = useMotionValue(0);
@@ -226,42 +229,28 @@ function MagneticLink({ href, children, className }: {
     y.set((e.clientY - (r.top + r.height / 2)) * 0.38);
   };
   return (
+    // @ts-ignore
     <motion.a ref={ref} href={href} className={className} style={{ x: sx, y: sy }}
       onMouseMove={move} onMouseLeave={() => { x.set(0); y.set(0); }}
-      whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.94 }}
+      onClick={onClick}
+      whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
       transition={{ type: "spring", stiffness: 400, damping: 22 }}>
       {children}
     </motion.a>
   );
 }
 
-
-// ─── Shimmer divider ───────────────────────────────────────────────────────
-function Divider({ delay = 0 }: { delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.5 });
+function PulseDot({ color = "#046241" }: { color?: string }) {
   return (
-    <motion.div ref={ref} className="relative h-px overflow-hidden"
-      style={{ background: "rgba(4,98,65,.09)" }}
-      initial={{ scaleX: 0, opacity: 0 }}
-      animate={inView ? { scaleX: 1, opacity: 1 } : {}}
-      transition={{ duration: 1.1, delay, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <motion.div className="absolute inset-y-0 left-0 w-[30%]"
-        style={{ background: "linear-gradient(90deg,transparent,rgba(4,98,65,.45),transparent)" }}
-        animate={{ x: ["-100%", "440%"] }}
-        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut", repeatDelay: 2 }}
-      />
-    </motion.div>
+    <span className="relative inline-flex" style={{ width: 8, height: 8 }}>
+      <span className="absolute inline-flex rounded-full opacity-60"
+        style={{ background: color, animation: "_lw-pulse-ring 1.8s ease-out infinite", inset: 0 }} />
+      <span className="relative inline-flex rounded-full" style={{ background: color, width: 8, height: 8 }} />
+    </span>
   );
 }
 
-// ─── Parallax scroll hook ──────────────────────────────────────────────────
-function useParallax(
-  containerRef: React.RefObject<HTMLDivElement>,
-  imageRef: React.RefObject<HTMLDivElement>,
-  intensity = 70
-) {
+function useParallax(containerRef: React.RefObject<HTMLDivElement>, imageRef: React.RefObject<HTMLDivElement>, intensity = 70) {
   useEffect(() => {
     const c = containerRef.current, img = imageRef.current;
     if (!c || !img) return;
@@ -279,64 +268,38 @@ function useParallax(
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", update);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", update); if (raf) cancelAnimationFrame(raf); };
+  }, [intensity]);
 }
 
-function useHeroParallax(
-  sectionRef: React.RefObject<HTMLElement>,
-  imageRef: React.RefObject<HTMLDivElement>,
-  topRef: React.RefObject<HTMLDivElement>,
-  botRef: React.RefObject<HTMLDivElement>
-) {
+function useHeroParallax(sectionRef: React.RefObject<HTMLElement>, imageRef: React.RefObject<HTMLDivElement>) {
   useEffect(() => {
     const s = sectionRef.current, img = imageRef.current;
     if (!s || !img) return;
-    if (window.matchMedia("(prefers-reduced-motion:reduce)").matches) {
-      img.style.transform = "translate3d(0,0,0) scale(1.1)"; return;
-    }
+    if (window.matchMedia("(prefers-reduced-motion:reduce)").matches) { img.style.transform = "translate3d(0,0,0) scale(1.1)"; return; }
     let raf = 0, active = true;
-    let cY = 0, cS = 1.13, cR = 0, cT = 0, cB = 0;
+    let cY = 0, cS = 1.13;
     const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
     const update = () => {
       raf = 0;
       const r = s.getBoundingClientRect();
       const p = clamp((window.innerHeight - r.top) / (r.height + window.innerHeight), 0, 1);
       const c = p - 0.5;
-      const tY = -c * 300, tS = 1.13 + (0.08 - Math.abs(c) * 0.07);
-      const tR = c * 1.2, tT = c * 110, tB = -c * 85;
+      const tY = -c * 200, tS = 1.13 + (0.05 - Math.abs(c) * 0.05);
       cY += (tY - cY) * 0.13; cS += (tS - cS) * 0.11;
-      cR += (tR - cR) * 0.13; cT += (tT - cT) * 0.15; cB += (tB - cB) * 0.15;
-      img.style.transform = `translate3d(0,${cY.toFixed(1)}px,0) scale(${cS.toFixed(3)}) rotate(${cR.toFixed(2)}deg)`;
-      if (topRef.current) topRef.current.style.transform = `translate3d(0,${cT.toFixed(1)}px,0)`;
-      if (botRef.current) botRef.current.style.transform = `translate3d(0,${cB.toFixed(1)}px,0)`;
+      img.style.transform = `translate3d(0,${cY.toFixed(1)}px,0) scale(${cS.toFixed(3)})`;
       if (Math.abs(tY - cY) > 0.2 || Math.abs(tS - cS) > 0.001) raf = requestAnimationFrame(update);
     };
     const onScroll = () => { if (active && !raf) raf = requestAnimationFrame(update); };
-    const io = new IntersectionObserver(([e]) => {
-      active = e.isIntersecting;
-      if (active && !raf) raf = requestAnimationFrame(update);
-    }, { rootMargin: "240px 0px" });
+    const io = new IntersectionObserver(([e]) => { active = e.isIntersecting; if (active && !raf) raf = requestAnimationFrame(update); }, { rootMargin: "240px 0px" });
     io.observe(s); update();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", update);
-    return () => {
-      io.disconnect();
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", update);
-      if (raf) cancelAnimationFrame(raf);
-    };
+    return () => { io.disconnect(); window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", update); if (raf) cancelAnimationFrame(raf); };
   }, []);
 }
 
-// ─── Parallax image wrapper ────────────────────────────────────────────────
-function ParallaxImage({ src, alt, className = "", intensity = 70 }: {
-  src: string; alt: string; className?: string; intensity?: number;
-}) {
+function ParallaxImage({ src, alt, className = "", intensity = 70 }: { src: string; alt: string; className?: string; intensity?: number; }) {
   const c = useRef<HTMLDivElement>(null), img = useRef<HTMLDivElement>(null);
   useParallax(c, img, intensity);
   return (
@@ -348,18 +311,13 @@ function ParallaxImage({ src, alt, className = "", intensity = 70 }: {
   );
 }
 
-// ─── 3D tilt card ──────────────────────────────────────────────────────────
 function TiltCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el || window.matchMedia("(prefers-reduced-motion:reduce)").matches) return;
-    let raf = 0;
-    const s = { rx: 0, ry: 0, ty: 0 };
-    const render = () => {
-      raf = 0;
-      el.style.transform = `perspective(1200px) rotateX(${s.rx.toFixed(2)}deg) rotateY(${s.ry.toFixed(2)}deg) translateY(${s.ty.toFixed(1)}px)`;
-    };
+    let raf = 0; const s = { rx: 0, ry: 0, ty: 0 };
+    const render = () => { raf = 0; el.style.transform = `perspective(1200px) rotateX(${s.rx.toFixed(2)}deg) rotateY(${s.ry.toFixed(2)}deg) translateY(${s.ty.toFixed(1)}px)`; };
     const onMove = (e: PointerEvent) => {
       const r = el.getBoundingClientRect();
       s.rx = -((e.clientY - r.top) / r.height - 0.5) * 6;
@@ -368,13 +326,8 @@ function TiltCard({ children, className = "" }: { children: React.ReactNode; cla
       if (!raf) raf = requestAnimationFrame(render);
     };
     const reset = () => { s.rx = 0; s.ry = 0; s.ty = 0; if (!raf) raf = requestAnimationFrame(render); };
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerleave", reset);
-    return () => {
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerleave", reset);
-      if (raf) cancelAnimationFrame(raf);
-    };
+    el.addEventListener("pointermove", onMove); el.addEventListener("pointerleave", reset);
+    return () => { el.removeEventListener("pointermove", onMove); el.removeEventListener("pointerleave", reset); if (raf) cancelAnimationFrame(raf); };
   }, []);
   return (
     <div ref={ref} className={`_lw-card ${className}`}>
@@ -384,318 +337,55 @@ function TiltCard({ children, className = "" }: { children: React.ReactNode; cla
   );
 }
 
-// ─── Spinning "be amazed" circle ───────────────────────────────────────────
-function BeAmazedCircle() {
-  const TEXT = "be amazed • be amazed • be amazed •";
-  const R = 46;
-  const chars = TEXT.split("");
+function Ticker() {
+  const items = ["Partnership", "Impact", "Communities", "Education", "Growth", "Africa", "Bangladesh", "Empowerment", "Sustainable Change"];
+  const repeated = [...items, ...items];
   return (
-    <div className="flex flex-col items-center select-none">
-      <div className="_lw-spin" style={{ width: R * 2 + 28, height: R * 2 + 28, position: "relative" }}>
-        {chars.map((ch, i) => {
-          const angle = (i / chars.length) * 360;
-          const rad = (angle * Math.PI) / 180;
-          const cx = R + 14;
-          return (
-            <span key={i} style={{
-              position: "absolute",
-              left: cx + R * Math.sin(rad), top: cx - R * Math.cos(rad),
-              transform: `translate(-50%,-50%) rotate(${angle}deg)`,
-              fontSize: 10, fontWeight: 800, letterSpacing: "0.12em",
-              textTransform: "uppercase", lineHeight: 1,
-            }} className="text-[#046241] dark:text-[#FFB347]">{ch}</span>
-          );
-        })}
-        <div className="_lw-glow rounded-full bg-[#FFB347]"
-          style={{ position: "absolute", width: 26, height: 26, top: "50%", left: "50%", transform: "translate(-50%,-50%)" }} />
-      </div>
-      <div className="mt-2 flex flex-col items-center gap-0.5">
-        <div className="w-px h-5 bg-[#046241]/35 dark:bg-[#FFB347]/35" />
-        <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="text-[#046241] dark:text-[#FFB347] opacity-60">
-          <path d="M1 1l6 7 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+    <div className="overflow-hidden border-t border-[#0f2318]/5 dark:border-white/5 py-5 select-none bg-[#fcfdfd]/60 dark:bg-[#08150d] backdrop-blur-md" aria-hidden>
+      <div className="_lw-marquee-track _lw-ticker gap-12">
+        {repeated.map((item, i) => (
+          <span key={i} className="flex items-center gap-12 whitespace-nowrap">
+            <span className="text-[13px] font-bold italic tracking-wide text-[#0f2318]/30 dark:text-white/25 uppercase">
+              {item}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347]/50 flex-shrink-0" />
+          </span>
+        ))}
       </div>
     </div>
   );
 }
 
-// ─── Pulsing dot ───────────────────────────────────────────────────────────
-function PulseDot({ color = "#046241" }: { color?: string }) {
-  return (
-    <span className="relative inline-flex" style={{ width: 8, height: 8 }}>
-      <span className="absolute inline-flex rounded-full opacity-60"
-        style={{ background: color, animation: "_lw-pulse-ring 1.8s ease-out infinite", inset: 0 }} />
-      <span className="relative inline-flex rounded-full" style={{ background: color, width: 8, height: 8 }} />
-    </span>
-  );
-}
-
-// ─── PAGE ──────────────────────────────────────────────────────────────────
-function ScrollStackItem({
+function Reveal({
   children,
   className = "",
+  delay = 0,
 }: {
   children: React.ReactNode;
   className?: string;
+  delay?: number;
 }) {
-  return <div className={`_lw-stack-card ${className}`.trim()}>{children}</div>;
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.7, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
-function ScrollStack({
-  children,
-  className = "",
-  itemDistance = 120,
-  itemScale = 0.04,
-  itemStackDistance = 34,
-  stackPosition = "20%",
-  scaleEndPosition = "9%",
-  baseScale = 0.86,
-  rotationAmount = 0,
-  blurAmount = 0,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  itemDistance?: number;
-  itemScale?: number;
-  itemStackDistance?: number;
-  stackPosition?: string | number;
-  scaleEndPosition?: string | number;
-  baseScale?: number;
-  rotationAmount?: number;
-  blurAmount?: number;
-}) {
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  const cardsRef = useRef<HTMLDivElement[]>([]);
-  const renderedTransformsRef = useRef(
-    new Map<number, { translateY: number; scale: number; rotation: number; blur: number }>()
-  );
-  const targetTransformsRef = useRef(
-    new Map<number, { translateY: number; scale: number; rotation: number; blur: number }>()
-  );
-  const smoothRafRef = useRef<number | null>(null);
-
-  const calculateProgress = useCallback((scrollTop: number, start: number, end: number) => {
-    if (end <= start) return scrollTop >= end ? 1 : 0;
-    if (scrollTop < start) return 0;
-    if (scrollTop > end) return 1;
-    return (scrollTop - start) / (end - start);
-  }, []);
-
-  const parsePosition = useCallback((value: string | number, containerHeight: number) => {
-    if (typeof value === "string" && value.includes("%")) {
-      return (parseFloat(value) / 100) * containerHeight;
-    }
-    return typeof value === "number" ? value : parseFloat(value);
-  }, []);
-
-  const getOffsetTop = useCallback((el: HTMLElement) => {
-    let top = el.offsetTop;
-    let parent = el.offsetParent as HTMLElement | null;
-    while (parent) {
-      top += parent.offsetTop;
-      parent = parent.offsetParent as HTMLElement | null;
-    }
-    return top;
-  }, []);
-
-  const resetTransforms = useCallback(() => {
-    if (smoothRafRef.current !== null) {
-      cancelAnimationFrame(smoothRafRef.current);
-      smoothRafRef.current = null;
-    }
-
-    cardsRef.current.forEach((card, i) => {
-      if (i < cardsRef.current.length - 1) {
-        card.style.marginBottom = `${itemDistance}px`;
-      }
-      card.style.transform = "";
-      card.style.filter = "";
-    });
-    renderedTransformsRef.current.clear();
-    targetTransformsRef.current.clear();
-  }, [itemDistance]);
-
-  const animateTowardTargets = useCallback(() => {
-    if (smoothRafRef.current !== null) return;
-
-    const tick = () => {
-      const cards = cardsRef.current;
-      if (!cards.length) {
-        smoothRafRef.current = null;
-        return;
-      }
-
-      let hasPending = false;
-
-      cards.forEach((card, i) => {
-        const target = targetTransformsRef.current.get(i);
-        if (!target) return;
-
-        const current = renderedTransformsRef.current.get(i) ?? target;
-        const easing = 0.18;
-        const next = {
-          translateY: current.translateY + (target.translateY - current.translateY) * easing,
-          scale: current.scale + (target.scale - current.scale) * easing,
-          rotation: current.rotation + (target.rotation - current.rotation) * easing,
-          blur: current.blur + (target.blur - current.blur) * easing,
-        };
-
-        const isSettled =
-          Math.abs(next.translateY - target.translateY) < 0.08 &&
-          Math.abs(next.scale - target.scale) < 0.001 &&
-          Math.abs(next.rotation - target.rotation) < 0.08 &&
-          Math.abs(next.blur - target.blur) < 0.08;
-
-        const applied = isSettled ? target : next;
-        if (!isSettled) {
-          hasPending = true;
-        }
-
-        card.style.transform = `translate3d(0, ${applied.translateY.toFixed(2)}px, 0) scale(${applied.scale.toFixed(3)}) rotate(${applied.rotation.toFixed(2)}deg)`;
-        card.style.filter = applied.blur > 0.02 ? `blur(${applied.blur.toFixed(2)}px)` : "";
-        renderedTransformsRef.current.set(i, applied);
-      });
-
-      if (hasPending) {
-        smoothRafRef.current = requestAnimationFrame(tick);
-      } else {
-        smoothRafRef.current = null;
-      }
-    };
-
-    smoothRafRef.current = requestAnimationFrame(tick);
-  }, []);
-
-  const updateCardTargets = useCallback(() => {
-    const scroller = scrollerRef.current;
-    const cards = cardsRef.current;
-    if (!scroller || !cards.length) return;
-
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
-    const isDesktop = window.innerWidth >= 768;
-    if (reduceMotion || !isDesktop) {
-      resetTransforms();
-      return;
-    }
-
-    const scrollTop = window.scrollY;
-    const containerHeight = window.innerHeight;
-    const stackPositionPx = parsePosition(stackPosition, containerHeight);
-    const scaleEndPositionPx = parsePosition(scaleEndPosition, containerHeight);
-    const endElement = scroller.querySelector<HTMLElement>("._lw-stack-end");
-    const endElementTop = endElement ? getOffsetTop(endElement) : 0;
-    const pinEnd = endElementTop - containerHeight / 2;
-
-    let topCardIndex = 0;
-    for (let j = 0; j < cards.length; j += 1) {
-      const jCardTop = getOffsetTop(cards[j]);
-      const jTriggerStart = jCardTop - stackPositionPx - itemStackDistance * j;
-      if (scrollTop >= jTriggerStart) {
-        topCardIndex = j;
-      }
-    }
-
-    cards.forEach((card, i) => {
-      const cardTop = getOffsetTop(card);
-      const triggerStart = cardTop - stackPositionPx - itemStackDistance * i;
-      const triggerEnd = cardTop - scaleEndPositionPx;
-      const pinStart = triggerStart;
-
-      const scaleProgress = calculateProgress(scrollTop, triggerStart, triggerEnd);
-      const targetScale = baseScale + i * itemScale;
-      const scale = 1 - scaleProgress * (1 - targetScale);
-      const rotation = rotationAmount ? i * rotationAmount * scaleProgress : 0;
-
-      let blur = 0;
-      if (blurAmount && i < topCardIndex) {
-        blur = Math.max(0, (topCardIndex - i) * blurAmount);
-      }
-
-      let translateY = 0;
-      const isPinned = scrollTop >= pinStart && scrollTop <= pinEnd;
-      if (isPinned) {
-        translateY = scrollTop - cardTop + stackPositionPx + itemStackDistance * i;
-      } else if (scrollTop > pinEnd) {
-        translateY = pinEnd - cardTop + stackPositionPx + itemStackDistance * i;
-      }
-
-      const nextTransform = {
-        translateY,
-        scale,
-        rotation,
-        blur,
-      };
-
-      targetTransformsRef.current.set(i, nextTransform);
-    });
-
-    animateTowardTargets();
-  }, [
-    animateTowardTargets,
-    baseScale,
-    blurAmount,
-    calculateProgress,
-    getOffsetTop,
-    itemScale,
-    itemStackDistance,
-    parsePosition,
-    resetTransforms,
-    rotationAmount,
-    scaleEndPosition,
-    stackPosition,
-  ]);
-
-  useLayoutEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    const cards = Array.from(scroller.querySelectorAll<HTMLDivElement>("._lw-stack-card"));
-    cardsRef.current = cards;
-
-    cards.forEach((card, i) => {
-      // Keep later cards above earlier cards so stack order becomes:
-      // Partnership (back) -> Application (middle) -> Expanding (front)
-      card.style.zIndex = String(i + 1);
-      if (i < cards.length - 1) {
-        card.style.marginBottom = `${itemDistance}px`;
-      }
-      card.style.transformOrigin = "top center";
-      card.style.backfaceVisibility = "hidden";
-    });
-
-    let raf = 0;
-    const queueUpdate = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        updateCardTargets();
-      });
-    };
-
-    queueUpdate();
-    window.addEventListener("scroll", queueUpdate, { passive: true });
-    window.addEventListener("resize", queueUpdate);
-
-    return () => {
-      window.removeEventListener("scroll", queueUpdate);
-      window.removeEventListener("resize", queueUpdate);
-      if (raf) cancelAnimationFrame(raf);
-      if (smoothRafRef.current !== null) {
-        cancelAnimationFrame(smoothRafRef.current);
-        smoothRafRef.current = null;
-      }
-      cardsRef.current = [];
-      renderedTransformsRef.current.clear();
-      targetTransformsRef.current.clear();
-    };
-  }, [itemDistance, updateCardTargets]);
-
+function SectionEyebrow({ children, animated = false }: { children: React.ReactNode, animated?: boolean }) {
   return (
-    <div className={`_lw-stack-scroller ${className}`.trim()} ref={scrollerRef}>
-      <div className="_lw-stack-inner">
+    <div className="inline-flex items-center gap-2 rounded-full border border-[#046241]/18 bg-white px-4 py-2 shadow-sm dark:border-[#FFB347]/20 dark:bg-[#1a3326]">
+      {animated ? <PulseDot color="#FFB347" /> : <span className="h-2 w-2 rounded-full bg-[#FFB347]" />}
+      <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[#046241] dark:text-[#FFB347]">
         {children}
-        <div className="_lw-stack-end" />
-      </div>
+      </span>
     </div>
   );
 }
@@ -703,347 +393,219 @@ function ScrollStack({
 export default function PhilanthropyImpactPage() {
   const heroSection = useRef<HTMLElement>(null);
   const heroImage = useRef<HTMLDivElement>(null);
-  const heroTop = useRef<HTMLDivElement>(null);
-  const heroBot = useRef<HTMLDivElement>(null);
-  useHeroParallax(heroSection, heroImage, heroTop, heroBot);
+  useHeroParallax(heroSection, heroImage);
+
+  useEffect(() => {
+    const prevBody = document.body.style.backgroundColor;
+    const prevHtml = document.documentElement.style.backgroundColor;
+    document.body.style.backgroundColor = '#ffffff';
+    document.documentElement.style.backgroundColor = '#ffffff';
+    return () => {
+      document.body.style.backgroundColor = prevBody;
+      document.documentElement.style.backgroundColor = prevHtml;
+    };
+  }, []);
 
   return (
-    <main className="bg-brand-paper dark:bg-brand-dark text-[#0f2318] dark:text-white overflow-x-hidden relative">
+    <main
+      className="bg-white text-[#0f2318] dark:bg-[#0a1a10] dark:text-white overflow-x-hidden relative"
+      style={{ fontFamily: "Poppins, Sora, 'Segoe UI', sans-serif" }}
+    >
       <GlobalStyles />
       <IntroOverlay />
 
-      {/* Ambient orbs — fixed, always visible */}
-      <motion.div aria-hidden className="fixed pointer-events-none"
-        style={{
-          top: "8%", left: "-12%", width: 700, height: 700, filter: "blur(90px)", zIndex: 0,
-          background: "radial-gradient(circle, rgba(4,98,65,0.055) 0%, transparent 70%)"
-        }}
-        animate={{ scale: [1, 1.1, 1], x: [0, 22, 0] }}
-        transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div aria-hidden className="fixed pointer-events-none"
-        style={{
-          bottom: "10%", right: "-10%", width: 580, height: 580, filter: "blur(80px)", zIndex: 0,
-          background: "radial-gradient(circle, rgba(4,98,65,0.04) 0%, transparent 70%)"
-        }}
-        animate={{ scale: [1, 1.08, 1], y: [0, -24, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 4 }}
-      />
-
-      {/* ══════════════════════════════════════════════════
-          HERO HEADER
-      ══════════════════════════════════════════════════ */}
-      <section className="px-6 md:px-16 pt-16 pb-6 relative z-10">
-        <div className="max-w-[1400px] mx-auto">
-
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5
-                       bg-[#046241]/8 dark:bg-[#046241]/15
-                       border border-[#046241]/12 dark:border-[#046241]/25"
-          >
-            <PulseDot color="#046241" />
-            <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#046241] dark:text-[#FFB347]">
-              Lifewood Foundation
-            </span>
-          </motion.div>
-
-          {/* Heading */}
-          <div className="mb-4">
-            <h1 className="font-black leading-tight tracking-[-0.02em] text-[#0f2318] dark:text-white
-                           text-4xl md:text-5xl">
-              <SplitReveal text="Philanthropy" delay={0.18} />
-              <br />
-              <SplitReveal text="and Impact" delay={0.28}
-                className="inline-block text-[1.1em] text-[#046241] dark:text-[#FFB347]" />
-            </h1>
-          </div>
-
-          {/* Description + CTA — matches TypeA/B/C left panel */}
-          <Reveal delay={0.05} className="max-w-[480px] mb-4">
-            <p className="text-base leading-relaxed text-[#1a3326]/65 dark:text-white">
-              We direct resources into education and developmental projects that create lasting
-              change — building sustainable growth and empowering communities for the future.
-            </p>
-          </Reveal>
-
-          <Reveal delay={0.12}>
-            <MagneticLink href="/contact"
-              className="inline-flex items-center gap-3 rounded-full
-                         bg-[#046241] dark:bg-[#FFB347]
-                         text-white dark:text-[#0f2318]
-                         px-5 py-2.5 text-[12px] font-black uppercase tracking-widest
-                         shadow-lg shadow-[#046241]/25 dark:shadow-[#FFB347]/25"
-            >
-              Contact Us
-              <motion.svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
-                animate={{ x: [0, 3, 0] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
-                <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </motion.svg>
-            </MagneticLink>
-          </Reveal>
-
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          HERO PARALLAX IMAGE
-      ══════════════════════════════════════════════════ */}
-      <section
-        ref={heroSection}
-        aria-label="Philanthropy impact visual"
-        className="relative w-full h-[100vh] md:h-[130vh] overflow-hidden"
-      >
-        <div className="sticky top-0 h-screen w-full overflow-hidden">
-          <div ref={heroImage}
-            style={{
-              position: "absolute", top: "-26%", left: 0, width: "100%", height: "156%",
-              willChange: "transform", transform: "translate3d(0,0,0) scale(1.13)"
-            }}
-          >
-            <img src={PARALLAX_IMAGE} alt="Philanthropy impact" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
-
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.04) 40%, rgba(0,0,0,0.42) 100%)" }} />
-
-          {/* Parallax film strips */}
-          <div ref={heroTop}
-            className="absolute inset-x-0 top-[33%] h-[8vh] pointer-events-none"
-            style={{ background: "rgba(0,0,0,0.18)", backdropFilter: "blur(1px)", willChange: "transform" }} />
-          <div ref={heroBot}
-            className="absolute inset-x-0 top-[63%] h-[8vh] pointer-events-none"
-            style={{ background: "rgba(0,0,0,0.16)", backdropFilter: "blur(1px)", willChange: "transform" }} />
-
-
-          {/* Floating caption bottom-right */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.65, duration: 0.65 }}
-            className="absolute bottom-10 right-6 md:right-16 z-10"
-          >
-            <p className="text-[9px] font-bold uppercase tracking-[0.26em] text-white/78 text-right leading-[1.9]">
-              Africa &<br />Indian Sub-continent
-            </p>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          VISION PULLQUOTE
-      ══════════════════════════════════════════════════ */}
-      <section className="px-6 md:px-16 -mt-[30vh] pt-0 pb-16 md:pb-24 relative z-10">
-        <div className="max-w-[1400px] mx-auto">
-          <Reveal className="mt-1 md:mt-2">
-            {/* Dot + rule */}
-
-
-            {/* Big quote */}
-            <p className="text-base md:text-xl leading-relaxed tracking-[-0.01em] font-medium
-                          text-[#0f2318] dark:text-white max-w-[860px] mx-auto text-center">
-              <SplitReveal
-                text="Our vision is of a world where financial investment plays a central role in solving the social and environmental challenges facing the global community, specifically in Africa and the Indian sub-continent."
-                delay={0.032}
-              />
-            </p>
-
-            <Reveal delay={0.12} className="mt-9 flex justify-center">
-              <MagneticLink href="#impact-list"
-                className="inline-flex items-center gap-3 rounded-full
-                           bg-[#046241] dark:bg-[#FFB347]
-                           text-white dark:text-[#0f2318]
-                           px-5 py-2.5 text-[12px] font-black uppercase tracking-widest
-                           shadow-lg shadow-[#046241]/25 dark:shadow-[#FFB347]/25"
-              >
-                Know Us Better
-                <motion.svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
-                  animate={{ x: [0, 3, 0] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
-                  <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                </motion.svg>
-              </MagneticLink>
-            </Reveal>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          MAP
-      ══════════════════════════════════════════════════ */}
-      <section className="px-6 md:px-16 pb-16 relative z-10">
-        <div className="max-w-[1400px] mx-auto">
-          <Divider />
-
-          <div className="flex items-start justify-between gap-6 mt-14 mb-8">
-            <Reveal>
-              <h2 className="font-black leading-tight tracking-[-0.02em]
-                             text-3xl md:text-5xl
-                             text-[#0f2318] dark:text-white">
-                Transforming
-
-                <span className="text-[#046241] dark:text-[#FFB347]"> Communities</span>
-                <br />
-                Worldwide
-              </h2>
-            </Reveal>
-            <div className="hidden md:flex pt-3 flex-shrink-0">
-              <BeAmazedCircle />
-            </div>
-          </div>
-
-          <Reveal delay={0.08}>
-            <div className="relative rounded-3xl overflow-hidden h-[300px] md:h-[500px]
-                            border border-[#046241]/10 dark:border-white/8
-                            shadow-[0_16px_56px_rgba(4,98,65,0.12)] dark:shadow-[0_16px_56px_rgba(0,0,0,0.48)]">
-              {/* Top shimmer on map */}
-              <div className="absolute top-0 left-8 right-8 h-px z-10 rounded-full pointer-events-none"
-                style={{ background: "linear-gradient(90deg,transparent,rgba(4,98,65,.28),transparent)" }} />
-              <OfficeMap offices={IMPACT_OFFICES as any} />
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          IMPACT ARTICLES
-      ══════════════════════════════════════════════════ */}
-      <section id="impact-list" className="px-6 md:px-16 pb-24 relative z-10">
-        <div className="max-w-[1400px] mx-auto">
-
-          {/* Chapter intro */}
-          <Divider />
-          <Reveal className="py-14">
-            <article className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6 md:gap-14 items-start">
-              <div className="flex items-center gap-3 text-[18px] md:text-[26px] font-black
-                              text-[#1b1b1b]/55 dark:text-white leading-none tracking-tight">
-                <span className="w-5 h-px bg-[#046241]/35 dark:bg-white/20 flex-shrink-0" />
-                Impact
-              </div>
-              <p className="text-base md:text-xl leading-relaxed
-                            tracking-[-0.01em] font-medium text-[#0f2318]/85 dark:text-white">
-                Through purposeful partnerships and sustainable investment, we empower communities
-                across Africa and the Indian sub-continent to create lasting economic and social
-                transformation.
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      <section ref={heroSection} className="relative isolate px-6 pb-14 pt-14 md:px-16 md:pb-20 md:pt-20">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+          <Reveal className="flex flex-col justify-between rounded-[34px] border border-[#d4e4db] bg-white p-7 shadow-[0_25px_80px_rgba(4,98,65,0.07)] dark:border-[#2a4535] dark:bg-[#122318] md:p-10">
+            <div>
+              <SectionEyebrow animated>Lifewood Foundation</SectionEyebrow>
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-[0.96] tracking-[-0.05em] text-[#0f2318] dark:text-white md:text-6xl">
+                <SplitReveal text="Philanthropy" delay={0.2} />
+                <span className="block text-[#046241] dark:text-[#FFB347]">
+                  <SplitReveal text="& Impact" delay={0.32} />
+                </span>
+              </h1>
+              <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4] md:text-[17px]">
+                We direct resources into education and developmental projects that create lasting
+                change — building sustainable growth and empowering communities for the future.
               </p>
-            </article>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <MagneticLink
+                  onClick={() => navigate("/contact")}
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[#046241] px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-[0_14px_32px_rgba(4,98,65,0.28)] transition-all hover:bg-opacity-90 dark:bg-[#FFB347] dark:text-[#0f2318] dark:shadow-[0_14px_32px_rgba(255,179,71,0.2)]"
+                >
+                  Get Involved
+                </MagneticLink>
+                <MagneticLink
+                  onClick={() => {
+                    document.getElementById('impact')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="inline-flex cursor-pointer items-center justify-center rounded-full border border-[#046241]/25 bg-white px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-[#046241] transition-colors hover:border-[#046241]/50 hover:bg-[#eef5f1] dark:border-[#a8c4b4]/25 dark:bg-[#1a3326] dark:text-[#a8c4b4] dark:hover:border-[#FFB347]/40 dark:hover:text-[#FFB347]"
+                >
+                  See our impact
+                </MagneticLink>
+              </div>
+            </div>
+            <div className="mt-10 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-[#046241]/10 bg-[#f4f8f6] px-4 py-4 dark:border-[#2a4535] dark:bg-[#152e22]">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#046241] dark:text-[#FFB347]">Region of focus</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#1a3326] dark:text-[#c8ddd3]">Africa & Indian Sub-continent</p>
+              </div>
+            </div>
           </Reveal>
 
-          {/* Articles */}
-          <ScrollStack>
-            {ARTICLES.map((a) => (
-              <ScrollStackItem key={a.num} className="py-14 bg-brand-paper dark:bg-brand-dark">
-                <Divider delay={0.04} />
-                <article className="relative pt-14">
-                  {/* Watermark number */}
-                  <div aria-hidden className="_lw-art-num absolute -top-4 left-0 select-none">
-                    {a.num}
+          <Reveal delay={0.08} className="grid gap-4">
+            <div className="relative overflow-hidden rounded-[34px] border border-[#c8ddd3] bg-[#0f2318] shadow-[0_25px_80px_rgba(4,98,65,0.14)] dark:border-[#2a4535] h-[400px] md:h-auto">
+              <div ref={heroImage} style={{ position: "absolute", top: "-26%", left: 0, width: "100%", height: "156%", willChange: "transform", transform: "translate3d(0,0,0) scale(1.13)" }}>
+                <img src={PARALLAX_IMAGE} alt="Philanthropy impact" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07140e]/60 to-transparent pointer-events-none" />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── STATS ─────────────────────────────────────────────── */}
+      <section className="px-6 py-14 md:px-16 md:py-16 bg-[#fcfdfd] dark:bg-[#08150d] border-t border-[#046241]/5 dark:border-[#2a4535]">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {STATS.map((stat, index) => (
+              <Reveal key={stat.label} delay={0.06 * index}>
+                <AnimatedStat valueString={stat.value} label={stat.label} detail={stat.detail} />
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Marquee Ticker */}
+      <Ticker />
+
+      {/* ── VISION ──────────────────────────────────────────────── */}
+      <section className="bg-white px-6 py-16 dark:bg-[#0a1a10] md:px-16 md:py-24 border-t border-[#046241]/5 dark:border-[#2a4535]">
+        <div className="mx-auto max-w-5xl text-center">
+          <Reveal>
+            <SectionEyebrow animated>Our Vision</SectionEyebrow>
+            <h2 className="mt-8 text-3xl font-black leading-snug tracking-[-0.02em] text-[#0f2318] dark:text-white md:text-5xl">
+              <SplitReveal text='"A world where financial investment plays a central role in solving the social and environmental challenges facing the global community, specifically in Africa and the Indian sub-continent."' delay={0.1} />
+            </h2>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── MAP ─────────────────────────────────────────────────── */}
+      <section className="px-6 pb-20 pt-10 md:px-16 md:pb-28">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="mb-10 text-center lg:text-left flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+            <div>
+              <SectionEyebrow animated>Global Reach</SectionEyebrow>
+              <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+                <SplitReveal text="Transforming communities" delay={0.1} />
+                <span className="block text-[#046241] dark:text-[#FFB347]">
+                  <SplitReveal text="worldwide." delay={0.3} />
+                </span>
+              </h2>
+            </div>
+          </Reveal>
+          
+          <Reveal delay={0.1}>
+            <div className="relative overflow-hidden rounded-[34px] border border-[#c8ddd3] bg-[#0e1f16] p-4 shadow-[0_24px_70px_rgba(4,98,65,0.08)] dark:border-[#2a4535] dark:bg-[#122318]">
+              <div className="h-[400px] md:h-[540px] w-full bg-[#f8fbfa] dark:bg-[#0d1f15] rounded-[24px] overflow-hidden relative">
+                <Suspense fallback={
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-sm font-semibold uppercase tracking-[0.2em] text-[#046241]/50 dark:text-[#FFB347]/50">Loading map...</span>
                   </div>
+                }>
+                  <OfficeMap offices={IMPACT_OFFICES as any} />
+                </Suspense>
+              </div>
+            </div>
+          </Reveal>
 
-                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-center
-                                   ${a.flip ? "md:[&>*:first-child]:order-2 md:[&>*:last-child]:order-1" : ""}`}>
+          <Reveal delay={0.15} className="mt-8 flex flex-wrap gap-2 justify-center lg:justify-start">
+            {IMPACT_OFFICES.map((o) => (
+              <span key={o.city} className="rounded-full border border-[#046241]/10 bg-white px-3.5 py-2 text-[11px] font-semibold text-[#1a3326] dark:border-[#2a4535] dark:bg-[#1a3326] dark:text-[#c8ddd3]">
+                {o.city}
+              </span>
+            ))}
+          </Reveal>
+        </div>
+      </section>
 
-                    {/* Text */}
-                    <div className="relative z-10">
-                      {/* Number + label */}
-                      <div className="flex items-center gap-3 mb-5">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em]
-                                         text-[#046241]/40 dark:text-[#FFB347]/85">
-                          {a.num}
-                        </span>
-                        <span className="h-px w-8 bg-[#046241]/20 dark:bg-[#FFB347]/18" />
-                      </div>
+      {/* ── IMPACT STORIES ──────────────────────────────────────────────────────── */}
+      <section id="impact" className="border-t border-[#046241]/8 bg-[#f8fbfa] px-6 py-16 dark:border-[#2a4535] dark:bg-[#0a150e] md:px-16 md:py-24">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="mb-12">
+            <SectionEyebrow animated>Impact Stories</SectionEyebrow>
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+              Through purposeful partnerships,
+              <span className="block text-[#046241] dark:text-[#FFB347]">we empower individuals.</span>
+            </h2>
+          </Reveal>
 
-                      {/* Title */}
-                      <h3 className="font-black tracking-[-0.02em] leading-tight
-                                     text-4xl md:text-5xl
-                                     text-[#0f2318] dark:text-white mb-5">
-                        <SplitReveal text={a.label} delay={0.06} />
-                      </h3>
-
-                      {/* Animated underline */}
-                      <motion.div className="h-[2px] w-14 rounded-full mb-6 bg-[#046241] dark:bg-[#FFB347] origin-left"
-                        initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }}
-                        transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }} />
-
-                      <p className="text-[13px] leading-[1.85] text-[#1a3326]/60 dark:text-white max-w-[460px]">
-                        {a.body}
-                      </p>
+          <div className="grid gap-6 lg:gap-8">
+            {ARTICLES.map((a, index) => (
+              <Reveal key={a.num} delay={0.06 * index}>
+                <article className="grid overflow-hidden rounded-[30px] border border-[#d4e4db] bg-white shadow-[0_14px_45px_rgba(4,98,65,0.06)] dark:border-[#2a4535] dark:bg-[#122318] md:grid-cols-[1.1fr_0.9fr]">
+                  <div className={`flex flex-col justify-center p-8 md:p-14 ${index % 2 === 1 ? 'md:order-2' : ''}`}>
+                    <div className="flex items-center gap-4 mb-6 text-[#046241] dark:text-[#FFB347]">
+                      <span className="text-3xl font-black leading-none">{a.num}</span>
+                      <div className="h-px w-12 bg-[#046241]/20 dark:bg-[#FFB347]/30" />
                     </div>
-
-                    {/* Image */}
-                    <TiltCard className="rounded-2xl">
-                      <ParallaxImage src={a.img} alt={a.imgAlt}
-                        className="rounded-2xl h-[260px] md:h-[380px]
-                                   shadow-[0_18px_52px_rgba(4,98,65,0.16)] dark:shadow-[0_18px_52px_rgba(0,0,0,0.5)]
-                                   border border-[#046241]/8 dark:border-white/7"
-                        intensity={58}
-                      />
+                    <h3 className="text-2xl font-black tracking-tight text-[#0f2318] dark:text-white md:text-4xl">
+                      <SplitReveal text={a.label} delay={0.06} />
+                    </h3>
+                    <p className="mt-5 text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4] max-w-2xl">
+                      {a.body}
+                    </p>
+                  </div>
+                  <div className={`${index % 2 === 1 ? 'md:order-1 border-r' : 'md:border-l'} border-[#d4e4db] dark:border-[#2a4535]`}>
+                    <TiltCard className="h-[300px] md:h-full w-full rounded-none border-none">
+                      <ParallaxImage src={a.img} alt={a.label} className="h-full w-full" intensity={40} />
                     </TiltCard>
                   </div>
                 </article>
-              </ScrollStackItem>
+              </Reveal>
             ))}
-          </ScrollStack>
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════════════
-          CLOSING
-      ══════════════════════════════════════════════════ */}
-      <section className="px-6 md:px-16 pb-28 md:pb-40 relative z-10">
-        <div className="max-w-[1400px] mx-auto">
-          <Divider />
-          <Reveal className="pt-16">
+      {/* ── FOOTER CTA ──────────────────────────────────────────────────────────── */}
+      <section className="px-6 py-16 md:px-16 md:py-24">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="overflow-hidden rounded-[36px] border border-[#0f2318]/8 bg-[#0f2318] px-7 py-10 text-white shadow-[0_30px_90px_rgba(4,98,65,0.2)] dark:border-[#2a4535] dark:bg-[#0d1f15] md:px-12 md:py-16">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFB347]">Working together</p>
+                <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-white md:text-5xl">
+                  Working with new intelligence
+                  <span className="block">for a better world.</span>
+                </h2>
+                <p className="mt-6 max-w-2xl text-[15px] leading-8 text-[#a8c4b4]">
+                  Join us in creating sustainable change across Africa and the Indian sub-continent through education, training, and equitable economic development.
+                </p>
+              </div>
 
-            <div className="flex items-center gap-4 mb-10">
-              <motion.div className="w-2 h-2 rounded-full bg-[#046241] dark:bg-[#FFB347]"
-                animate={{ scale: [1, 1.45, 1] }} transition={{ duration: 2.2, repeat: Infinity }} />
-              <motion.div className="h-px flex-1 bg-gradient-to-r from-[#046241]/18 dark:from-[#FFB347]/18 to-transparent origin-left"
-                initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }}
-                transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }} />
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col mt-4 lg:mt-0">
+                <MagneticLink
+                  onClick={() => navigate("/contact")}
+                  className="inline-flex cursor-pointer items-center justify-center rounded-full bg-[#FFB347] px-8 py-4 text-[11px] font-black uppercase tracking-[0.22em] text-[#0f2318] shadow-[0_10px_32px_rgba(255,179,71,0.25)] transition-colors hover:bg-opacity-90"
+                >
+                  Get Involved
+                </MagneticLink>
+                <MagneticLink
+                  onClick={() => navigate("/about-us")}
+                  className="inline-flex cursor-pointer items-center justify-center rounded-full border border-white/20 px-8 py-4 text-[11px] font-black uppercase tracking-[0.22em] text-white transition-colors hover:border-[#FFB347]/50 hover:text-[#FFB347]"
+                >
+                  About Lifewood
+                </MagneticLink>
+              </div>
             </div>
-
-            <p className="font-medium leading-tight tracking-[-0.02em]
-                          text-3xl md:text-5xl
-                          text-[#0f2318] dark:text-white max-w-[700px]">
-              Working with new intelligence for a{" "}
-              <span className="text-[#046241] dark:text-[#FFB347]">
-                <SplitReveal text="better world." delay={0.08} />
-              </span>
-            </p>
-
-            <div className="mt-12 flex items-center gap-6">
-              <MagneticLink href="/contact"
-                className="inline-flex items-center gap-3 rounded-full
-                           bg-[#046241] dark:bg-[#FFB347]
-                           text-white dark:text-[#0f2318]
-                           px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em]
-                           shadow-[0_10px_32px_rgba(4,98,65,0.3)]"
-              >
-                Get Involved
-                <motion.svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"
-                  animate={{ x: [0, 3, 0] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
-                  <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                </motion.svg>
-              </MagneticLink>
-
-              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-[#1a3326]/32 dark:text-white">
-                Lifewood Foundation
-              </span>
-            </div>
-
           </Reveal>
         </div>
       </section>
-
     </main>
   );
 }
