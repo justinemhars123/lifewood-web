@@ -131,10 +131,10 @@ function toDashboardUser(row: UserRow): DashboardUser | null {
   };
 }
 
-function buildSeries(
-  users: DashboardUser[],
+function buildSeries<T>(
+  data: T[],
   days: number,
-  getDate: (user: DashboardUser) => string | null
+  getDate: (item: T) => string | null
 ) {
   const labels: { key: string; label: string }[] = [];
   const dayIndex = new Map<string, number>();
@@ -151,8 +151,8 @@ function buildSeries(
     dayIndex.set(key, labels.length - 1);
   }
   const values = new Array(labels.length).fill(0);
-  users.forEach((user) => {
-    const value = getDate(user);
+  data.forEach((item) => {
+    const value = getDate(item);
     if (!value) return;
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return;
@@ -526,13 +526,13 @@ export default function AdminDashboardPage() {
     return notificationItems.filter((entry) => entry.createdAt > seenAt).length;
   }, [notificationsSeenAt, notificationItems]);
 
-  const signupSeries = useMemo(
-    () => buildSeries(users, 7, (entry) => entry.createdAt),
-    [users]
+  const newApplicantsSeries = useMemo(
+    () => buildSeries(applicants, 7, (entry) => entry.created_at),
+    [applicants]
   );
-  const activeSeries = useMemo(
-    () => buildSeries(users, 7, (entry) => entry.lastSeen || entry.createdAt),
-    [users]
+  const processedApplicantsSeries = useMemo(
+    () => buildSeries(applicants.filter(a => a.status && a.status !== "New"), 7, (entry) => entry.created_at),
+    [applicants]
   );
 
   const roleBreakdown = useMemo(() => {
@@ -771,15 +771,15 @@ export default function AdminDashboardPage() {
 
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <BarChart
-              title="New users"
-              subtitle="Signups in the last 7 days"
-              series={signupSeries}
+              title="New Applicants"
+              subtitle="Applications in the last 7 days"
+              series={newApplicantsSeries}
               color="#0f6b4d"
             />
             <BarChart
-              title="Active users"
-              subtitle="Last seen in the last 7 days"
-              series={activeSeries}
+              title="Processed Applicants"
+              subtitle="Reviewed or interviewed recently"
+              series={processedApplicantsSeries}
               color="#FFB347"
             />
           </div>
