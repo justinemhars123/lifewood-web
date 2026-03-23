@@ -236,7 +236,7 @@ export default function AdminApplicantsPage() {
   const canAcceptCompletedApplicant = (status: string) => status === "Interview Completed";
   const isPrimaryApplicantActionEnabled = (status: string) =>
     canSendAiScreeningEmail(status) || canAcceptCompletedApplicant(status);
-  const canRejectAfterInterview = (status: string) => status === "Interview Completed";
+  const canRejectAfterInterview = (status: string) => status !== "Rejected";
 
   const markApplicantCompletedLocally = (applicantId: string) => {
     setApplicants((prev) =>
