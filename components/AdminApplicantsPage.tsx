@@ -224,9 +224,9 @@ export default function AdminApplicantsPage() {
   const isRefreshingInterviewResults = isLoadingInterviewResults && hasInterviewResultData;
 
   const getPrimaryApplicantActionLabel = (status: string) => {
-    if (status === "Interview Completed") return "Accept Applicant";
+    if (status === "Interview Completed") return "Proceed to HR Interview";
     if (status === "Pending Interview") return "AI Screening Sent";
-    if (status === "Accepted") return "Accepted";
+    if (status === "Accepted") return "Proceed to HR Interview";
     if (status === "HR Interview") return "HR Interview Scheduled";
     if (status === "Rejected") return "Rejected";
     return "Send Email for AI Screening";
@@ -605,7 +605,7 @@ export default function AdminApplicantsPage() {
 
   const openHrInterviewModal = (applicant: Applicant) => {
     setHrSchedule("");
-    const template = `Dear ${applicant.first_name},\n\nCongratulations! You have passed the AI screening phase for the ${applicant.position} role at Lifewood.\n\nWe would like to invite you to a final HR interview with our team.\n\nOur HR department will contact you shortly to schedule the exact date and time.\n\nBest regards,\nThe Lifewood Team`;
+    const template = `Dear ${applicant.first_name},\n\nCongratulations! We are pleased to move forward with your application for the ${applicant.position} role at Lifewood. Your AI screening has been reviewed successfully, and you have passed this stage.\n\nWe would like to invite you to a final HR interview with our team.\n\nOur HR department will contact you shortly to schedule the exact date and time.\n\nBest regards,\nThe Lifewood Team`;
     setHrEmailMessage(template);
     setHrEmailModal(applicant);
   };
@@ -636,7 +636,7 @@ export default function AdminApplicantsPage() {
       ? `Your HR interview has been scheduled for ${formattedDate} at our office:\nGround Floor i2 Building, Jose Del Mar Street Cebu IT Park, Asia Town, Salinas Drive Apas Lahug, Cebu City, 6000.` 
       : `Our HR department will contact you shortly to schedule the exact date and time.`;
 
-    const template = `Dear ${hrEmailModal.first_name},\n\nCongratulations! You have passed the AI screening phase for the ${hrEmailModal.position} role at Lifewood.\n\nWe would like to invite you to a final HR interview with our team.\n\n${scheduleText}\n\nBest regards,\nThe Lifewood Team`;
+    const template = `Dear ${hrEmailModal.first_name},\n\nCongratulations! We are pleased to move forward with your application for the ${hrEmailModal.position} role at Lifewood. Your AI screening has been reviewed successfully, and you have passed this stage.\n\nWe would like to invite you to a final HR interview with our team.\n\n${scheduleText}\n\nBest regards,\nThe Lifewood Team`;
     
     setHrEmailMessage(template);
   };
@@ -1141,7 +1141,7 @@ export default function AdminApplicantsPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center sm:justify-end gap-3 flex-1">
-                        {viewApplicant.status === "Accepted" ? (
+                        {(viewApplicant.status === "Interview Completed" || viewApplicant.status === "Accepted") ? (
                           <button
                             type="button"
                             onClick={() => openHrInterviewModal(viewApplicant)}
