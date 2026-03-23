@@ -1,544 +1,488 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
-const CAREERS_HERO_IMAGE =
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+const HERO_IMAGE =
   "https://framerusercontent.com/images/DF2gzPqqVW8QGp7Jxwp1y5257xk.jpg?height=4000&width=6000";
-const JOIN_US_LINK = "/join-us";
+const CULTURE_IMAGE =
+  "https://framerusercontent.com/images/4hASBG5DwObUZ6HSxm1j5gic.jpeg?scale-down-to=1024&width=853&height=1280";
 
-const TAG_ROWS = [
-  ["Flexible", "Supportive", "Collaborative", "Innovative", "Flexible", "Supportive"],
-  ["Engaging", "Diverse", "Purpose-driven", "Transparent", "Engaging", "Diverse", "Purpose-driven"],
-  ["Professional", "Reliable", "Balanced (work-life balance)", "Trustworthy", "Professional", "Reliable"],
+const COMPANY_STATS = [
+  { value: "30+", label: "Countries supported", detail: "Global delivery footprint across multilingual markets." },
+  { value: "10M+", label: "Datapoints handled", detail: "Structured, reviewed, and prepared for AI systems." },
+  { value: "7", label: "Service domains", detail: "From data collection to curation, QA, and operations." },
+  { value: "500+", label: "Experts and contributors", detail: "Specialists collaborating across functions and regions." },
 ];
 
-// ─── ALL CSS (original marquee + new text animation additions) ─────────────
-function CareersAnimations() {
-  return (
-    <style>{`
-      /* ── original marquee ── */
-      @keyframes lw-marquee-left {
-        0% { transform: translate3d(0, 0, 0); }
-        100% { transform: translate3d(-50%, 0, 0); }
-      }
-      @keyframes lw-marquee-right {
-        0% { transform: translate3d(-50%, 0, 0); }
-        100% { transform: translate3d(0, 0, 0); }
-      }
-      @keyframes lw-marquee-drift {
-        0%, 100% { transform: translateY(0); }
-        50% { transform: translateY(-1px); }
-      }
-      .lw-marquee-shell {
-        position: relative; border-radius: 14px;
-        padding: 4px 0; overflow: hidden;
-        border: 0; background: transparent; box-shadow: none;
-      }
-      .dark .lw-marquee-shell { background: transparent; }
-      .lw-marquee-shell::before { content: none; }
-      .lw-marquee-track {
-        display: flex; width: max-content;
-        gap: 12px; align-items: center; will-change: transform;
-      }
-      .lw-marquee-left  { animation: lw-marquee-left  linear infinite; }
-      .lw-marquee-right { animation: lw-marquee-right linear infinite; }
-      .lw-marquee-lane  { position: relative; overflow: hidden; padding: 3px 0; }
-      .lw-marquee-lane:nth-child(2) { animation: lw-marquee-drift 7s ease-in-out infinite; }
-      .lw-marquee-chip {
-        white-space: nowrap; padding: 9px 16px; border-radius: 2px;
-        font-size: 15px; line-height: 1; font-weight: 700; letter-spacing: 0;
-        color: #193026; border: 0; background: #eceec8; box-shadow: none;
-        transition: opacity 220ms ease;
-      }
-      .dark .lw-marquee-chip { color: #f7f8f4; background: rgba(255,179,71,0.2); }
-      .lw-marquee-chip:hover { opacity: 0.9; }
-      .dark .lw-marquee-chip:hover { opacity: 1; }
-      .lw-marquee-fade-left, .lw-marquee-fade-right {
-        position: absolute; top: 0; bottom: 0; width: 78px;
-        pointer-events: none; z-index: 2;
-      }
-      .lw-marquee-fade-left  { left: 0;  background: linear-gradient(90deg,  rgba(248,249,247,1), rgba(248,249,247,0)); }
-      .lw-marquee-fade-right { right: 0; background: linear-gradient(270deg, rgba(248,249,247,1), rgba(248,249,247,0)); }
-      .dark .lw-marquee-fade-left  { background: linear-gradient(90deg,  rgba(14,34,24,1), rgba(14,34,24,0)); }
-      .dark .lw-marquee-fade-right { background: linear-gradient(270deg, rgba(14,34,24,1), rgba(14,34,24,0)); }
+const DIFFERENTIATORS = [
+  {
+    title: "Meaningful AI work",
+    body: "Teams contribute to data programs that support real AI products, not abstract portfolio exercises.",
+  },
+  {
+    title: "Global and human-centered",
+    body: "Lifewood bridges languages, cultures, and communities so technology is built with broader representation.",
+  },
+  {
+    title: "Operational rigor",
+    body: "Work is grounded in quality controls, clear workflows, and practical delivery standards that developers can implement.",
+  },
+];
 
-      /* ── text animation additions ── */
+const ROLE_TRACKS = [
+  {
+    title: "Data collection and annotation",
+    summary: "For contributors who help gather, label, review, or validate datasets used in AI pipelines.",
+    roles: ["Image and video collection", "Speech and text capture", "Annotation and quality review"],
+  },
+  {
+    title: "Research and curation",
+    summary: "For detail-oriented teams working across genealogy, multilingual data, archives, and structured research.",
+    roles: ["Genealogy research", "Data curation workflows", "Domain-specific knowledge support"],
+  },
+  {
+    title: "Operations and delivery",
+    summary: "For people who coordinate projects, manage execution, and keep distributed teams aligned and moving.",
+    roles: ["Project coordination", "Operations leadership", "Cross-team delivery support"],
+  },
+];
 
-      /* Word clip: each word lives in an overflow:hidden wrapper so it rises through the floor */
-      .lw-word-clip {
-        display: inline-block;
-        overflow: hidden;
-        vertical-align: bottom;
-        margin-right: 0.26em;
-      }
-      .lw-word-clip:last-child { margin-right: 0; }
-      .lw-word-inner {
-        display: inline-block;
-        transform: translateY(110%);
-        opacity: 0;
-        transition: transform 0.72s cubic-bezier(0.16,1,0.3,1),
-                    opacity   0.72s cubic-bezier(0.16,1,0.3,1);
-      }
-      .lw-word-inner.in {
-        transform: translateY(0);
-        opacity: 1;
-      }
+const CULTURE_PILLARS = [
+  {
+    title: "Clarity over noise",
+    body: "Defined workstreams, accountable ownership, and visible next steps help people do their best work.",
+  },
+  {
+    title: "Learning in motion",
+    body: "The pace of AI changes quickly, so teams are expected to adapt, learn, and improve continuously.",
+  },
+  {
+    title: "Respect across borders",
+    body: "A distributed company needs communication habits that are inclusive, direct, and considerate.",
+  },
+];
 
-      /* Line clip: whole line rises through overflow:hidden parent */
-      .lw-line-clip { overflow: hidden; display: block; }
-      .lw-line-inner {
-        display: block;
-        transform: translateY(105%);
-        opacity: 0;
-        transition: transform 0.72s cubic-bezier(0.16,1,0.3,1),
-                    opacity   0.72s cubic-bezier(0.16,1,0.3,1);
-      }
-      .lw-line-inner.in {
-        transform: translateY(0);
-        opacity: 1;
-      }
+const HIRING_STEPS = [
+  {
+    step: "01",
+    title: "Explore the company",
+    body: "Start here to understand what Lifewood builds, how teams work, and where you might fit.",
+  },
+  {
+    step: "02",
+    title: "Submit an application",
+    body: "Move into the existing Join Us flow with your background, location, and role interest.",
+  },
+  {
+    step: "03",
+    title: "Complete screening",
+    body: "Qualified applicants continue through email follow-up and the AI pre-screening process.",
+  },
+  {
+    step: "04",
+    title: "Join the team",
+    body: "Successful candidates move into role-specific onboarding and operational support.",
+  },
+];
 
-      /* Slide-in from right for paragraph */
-      .lw-slide-right {
-        transform: translateX(36px);
-        opacity: 0;
-        transition: transform 0.8s cubic-bezier(0.16,1,0.3,1),
-                    opacity   0.8s cubic-bezier(0.16,1,0.3,1);
-      }
-      .lw-slide-right.in {
-        transform: translateX(0);
-        opacity: 1;
-      }
-
-      /* Animated grow divider */
-      .lw-divider-line {
-        transform-origin: left;
-        transform: scaleX(0);
-        transition: transform 1.1s cubic-bezier(0.16,1,0.3,1);
-      }
-      .lw-divider-line.in { transform: scaleX(1); }
-
-      @media (prefers-reduced-motion: reduce) {
-        .lw-marquee-left, .lw-marquee-right, .lw-marquee-lane { animation: none !important; }
-        .lw-word-inner, .lw-line-inner, .lw-slide-right { transition: none !important; }
-        .lw-word-inner, .lw-line-inner, .lw-slide-right { transform: none !important; opacity: 1 !important; }
-      }
-    `}</style>
-  );
+function navigate(path: string) {
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-// ─── useReveal — adds "in" class when element enters viewport ─────────────────
-function useReveal(ref: React.RefObject<HTMLElement | null>, delay = 0) {
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (delay) el.style.transitionDelay = `${delay}ms`;
-    const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { el.classList.add("in"); io.disconnect(); } },
-      { threshold: 0.08 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-}
-
-// ─── SplitWords — animates each word rising from overflow:hidden clip ─────────
-// Triggers when the wrapper enters viewport; words stagger by `stagger`ms each.
-function SplitWords({
-  text, className = "", baseDelay = 0, stagger = 55,
+function Reveal({
+  children,
+  className = "",
+  delay = 0,
 }: {
-  text: string; className?: string; baseDelay?: number; stagger?: number;
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
 }) {
-  const containerRef = useRef<HTMLSpanElement>(null);
-  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const words = text.split(" ");
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        io.disconnect();
-        wordRefs.current.forEach((el, i) => {
-          if (!el) return;
-          el.style.transitionDelay = `${baseDelay + i * stagger}ms`;
-          el.classList.add("in");
-        });
-      },
-      { threshold: 0.08 }
-    );
-    io.observe(container);
-    return () => io.disconnect();
-  }, [baseDelay, stagger]);
-
+  const reduceMotion = useReducedMotion();
   return (
-    <span ref={containerRef} className={className} style={{ display: "inline" }}>
-      {words.map((word, i) => (
-        <span key={i} className="lw-word-clip">
-          <span
-            ref={el => { wordRefs.current[i] = el; }}
-            className="lw-word-inner"
-          >
-            {word}
-          </span>
-        </span>
-      ))}
-    </span>
-  );
-}
-
-// ─── SplitLines — each line slides up through overflow clip, staggered ────────
-function SplitLines({
-  lines, baseDelay = 0,
-}: {
-  lines: React.ReactNode[];
-  baseDelay?: number;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (!e.isIntersecting) return;
-        io.disconnect();
-        lineRefs.current.forEach((el, i) => {
-          if (!el) return;
-          el.style.transitionDelay = `${baseDelay + i * 110}ms`;
-          el.classList.add("in");
-        });
-      },
-      { threshold: 0.08 }
-    );
-    io.observe(container);
-    return () => io.disconnect();
-  }, [baseDelay]);
-
-  return (
-    <div ref={containerRef}>
-      {lines.map((line, i) => (
-        <div key={i} className="lw-line-clip">
-          <div
-            ref={el => { lineRefs.current[i] = el; }}
-            className="lw-line-inner"
-          >
-            {line}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── SlideRight — paragraph slides in from right ──────────────────────────────
-function SlideRight({ children, delay = 0, className = "" }: {
-  children: React.ReactNode; delay?: number; className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useReveal(ref as React.RefObject<HTMLElement>, delay);
-  return (
-    <div ref={ref} className={`lw-slide-right ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-// ─── Original helpers (unchanged) ─────────────────────────────────────────────
-function useParallax(
-  containerRef: React.RefObject<HTMLDivElement>,
-  imageRef: React.RefObject<HTMLDivElement>,
-  intensity = 70
-) {
-  useEffect(() => {
-    const container = containerRef.current;
-    const image = imageRef.current;
-    if (!container || !image) return;
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      const rect = container.getBoundingClientRect();
-      const vh = window.innerHeight || 1;
-      const progress = 1 - rect.bottom / (rect.height + vh);
-      const clamped = Math.max(-0.1, Math.min(1.1, progress));
-      const y = (0.5 - clamped) * intensity * 2;
-      image.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0) scale(1.08)`;
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", update);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [containerRef, imageRef, intensity]);
-}
-
-function FadeIn({ children, delay = 0, className = "" }: {
-  children: React.ReactNode; delay?: number; className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.opacity = "0";
-    el.style.transform = "translateY(20px)";
-    el.style.transition = `opacity 650ms ease ${delay}ms, transform 650ms ease ${delay}ms`;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.style.opacity = "1";
-          el.style.transform = "translateY(0)";
-          io.disconnect();
-        }
-      },
-      { threshold: 0.12 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [delay]);
-  return <div ref={ref} className={className}>{children}</div>;
-}
-
-function MarqueeRow({ items, reverse = false, duration = 28 }: {
-  items: string[]; reverse?: boolean; duration?: number;
-}) {
-  const repeated = [...items, ...items, ...items, ...items];
-  return (
-    <div className="lw-marquee-lane">
-      <div
-        className={`lw-marquee-track ${reverse ? "lw-marquee-right" : "lw-marquee-left"}`}
-        style={{ animationDuration: `${duration}s` }}
-      >
-        {repeated.map((tag, i) => (
-          <span key={`${tag}-${i}`} className="lw-marquee-chip">{tag}</span>
-        ))}
-      </div>
-      <div className="lw-marquee-fade-left" />
-      <div className="lw-marquee-fade-right" />
-    </div>
-  );
-}
-
-function ParallaxHeroImage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLDivElement>(null);
-  useParallax(containerRef, imageRef, 70);
-  return (
-    <div
-      ref={containerRef}
-      className="max-w-[1400px] mx-auto rounded-3xl overflow-hidden relative h-[320px] md:h-[500px] lg:h-[560px]
-                 border border-[#046241]/12 dark:border-white/10
-                 shadow-[0_10px_40px_rgba(4,98,65,0.12)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.45)]"
+    <motion.div
+      className={className}
+      initial={reduceMotion ? false : { opacity: 0, y: 28 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.7, ease: EASE, delay }}
     >
-      <div
-        ref={imageRef}
-        style={{
-          position: "absolute", top: "-16%", left: 0,
-          width: "100%", height: "132%",
-          willChange: "transform",
-          transform: "translate3d(0,0,0) scale(1.08)",
-        }}
-      >
-        <img
-          src={CAREERS_HERO_IMAGE}
-          alt="Lifewood team collaborating around a table"
-          className="w-full h-full object-cover"
-        />
-      </div>
-      <div className="absolute inset-0 bg-gradient-to-b from-black/12 via-transparent to-black/25 pointer-events-none" />
+      {children}
+    </motion.div>
+  );
+}
+
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-[#046241]/18 bg-white px-4 py-2 shadow-sm dark:border-[#FFB347]/20 dark:bg-[#1a3326]">
+      <span className="h-2 w-2 rounded-full bg-[#FFB347]" />
+      <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[#046241] dark:text-[#FFB347]">
+        {children}
+      </span>
     </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// PAGE — only text nodes changed, all layout/sections preserved
-// ═══════════════════════════════════════════════════════════════════
+function CheckIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M5 12.5l4.2 4.2L19 7"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function CareersPage() {
-  // Divider line ref for the closing section
-  const dividerRef = useRef<HTMLDivElement>(null);
-  useReveal(dividerRef as React.RefObject<HTMLElement>);
-  const handleJoinUs = () => {
-    window.history.pushState({}, "", JOIN_US_LINK);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
+  // Sync html + body background so the floating navbar's backdrop-blur
+  // sees white instead of the browser's default white
+  React.useEffect(() => {
+    const prevBody = document.body.style.backgroundColor;
+    const prevHtml = document.documentElement.style.backgroundColor;
+    document.body.style.backgroundColor = '#ffffff';
+    document.documentElement.style.backgroundColor = '#ffffff';
+    return () => {
+      document.body.style.backgroundColor = prevBody;
+      document.documentElement.style.backgroundColor = prevHtml;
+    };
+  }, []);
 
   return (
-    <main className="bg-brand-paper dark:bg-brand-dark text-[#0f2318] dark:text-white overflow-x-hidden">
-      <CareersAnimations />
+    <main
+      className="bg-white text-[#0f2318] dark:bg-[#0a1a10] dark:text-white overflow-x-hidden"
+      style={{ fontFamily: "Poppins, Sora, 'Segoe UI', sans-serif" }}
+    >
+      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      <section className="relative isolate px-6 pb-14 pt-14 md:px-16 md:pb-20 md:pt-20">
+        <div className="absolute inset-0 -z-10" />
 
-      {/* ── HERO HEADER ── */}
-      <section className="px-6 md:px-16 pt-14 md:pt-20 pb-10">
-        <div className="max-w-[1400px] mx-auto">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+          {/* Left card */}
+          <Reveal className="flex flex-col justify-between rounded-[34px] border border-[#d4e4db] bg-white p-7 shadow-[0_25px_80px_rgba(4,98,65,0.07)] dark:border-[#2a4535] dark:bg-[#122318] md:p-10">
+            <div>
+              <SectionEyebrow>Careers at Lifewood</SectionEyebrow>
 
-          {/* Badge — original FadeIn preserved */}
-          <FadeIn>
-            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full
-                            bg-white dark:bg-[#1a3326]
-                            border border-[#046241]/15 dark:border-[#4ade80]/20 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347] animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-[#046241] dark:text-[#4ade80]">
-                Careers At Lifewood
-              </span>
-            </div>
-          </FadeIn>
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-[0.96] tracking-[-0.05em] text-[#0f2318] dark:text-white md:text-6xl">
+                Build AI data work that
+                <span className="block text-[#046241] dark:text-[#FFB347]">
+                  connects technology with people.
+                </span>
+              </h1>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-10 md:gap-16 items-end">
+              <p className="mt-6 max-w-xl text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4] md:text-[17px]">
+                This page is designed to help candidates understand Lifewood before they apply. It explains the kind
+                of company we are, the work we do, and the environments where people can grow.
+              </p>
 
-            {/* Left — headline + CTA: text now uses line-by-line clip reveal */}
-            <FadeIn>
-              <div>
-                {/* "Careers in" / "Lifewood" — each line clips up independently */}
-                <SplitLines
-                  baseDelay={0}
-                  lines={[
-                    <h1 className="text-4xl md:text-6xl font-black leading-[0.95] tracking-[-0.03em]
-                                   text-[#0f2318] dark:text-white">
-                      Careers in
-                    </h1>,
-                    <h1 className="text-4xl md:text-6xl font-black leading-[0.95] tracking-[-0.03em] mb-6
-                                   text-[#046241] dark:text-[#FFB347]">
-                      Lifewood
-                    </h1>,
-                  ]}
-                />
-
-                {/* CTA — original markup, wrapped in FadeIn timing */}
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  onClick={handleJoinUs}
-                  className="inline-flex items-center gap-3 rounded-full
-                             bg-[#046241] dark:bg-[#FFB347]
-                             text-white dark:text-[#0f2318]
-                             px-6 py-3 text-[11px] font-black uppercase tracking-[0.22em]
-                             shadow-[0_8px_28px_rgba(4,98,65,0.3)] dark:shadow-[0_8px_28px_rgba(255,179,71,0.3)]
-                             hover:scale-105 active:scale-95 transition-all"
+                  onClick={() => navigate("/join-us")}
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#046241] px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-[0_14px_32px_rgba(4,98,65,0.28)] transition-all hover:scale-[1.02] active:scale-[0.98] dark:bg-[#FFB347] dark:text-[#0f2318] dark:shadow-[0_14px_32px_rgba(255,179,71,0.2)]"
                 >
-                  Join Us
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  Apply now
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/contact")}
+                  className="inline-flex items-center justify-center rounded-full border border-[#046241]/25 bg-white px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-[#046241] transition-colors hover:border-[#046241]/50 hover:bg-[#eef5f1] dark:border-[#a8c4b4]/25 dark:bg-[#1a3326] dark:text-[#a8c4b4] dark:hover:border-[#FFB347]/40 dark:hover:text-[#FFB347]"
+                >
+                  Contact recruitment
+                </button>
               </div>
-            </FadeIn>
+            </div>
 
-            {/* Right — paragraph slides in from right */}
-            <FadeIn delay={120}>
-              <SlideRight delay={120}>
-                <p className="max-w-[560px] lg:ml-auto text-[16px] md:text-[20px] leading-[1.45] text-[#1a3326]/70 dark:text-white/70">
-                  Innovation, adaptability and the rapid development of new services
-                  separates companies that constantly deliver at the highest level
-                  from their competitors.
+            <div className="mt-10 grid gap-3 sm:grid-cols-3">
+              {[
+                "Structured career entry point",
+                "Practical AI data workflows",
+                "Global and cross-cultural teams",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-[#046241]/10 bg-white px-4 py-4 text-sm font-semibold text-[#1a3326] dark:border-[#2a4535] dark:bg-[#1a3326] dark:text-[#c8ddd3]"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          {/* Right image card */}
+          <Reveal delay={0.08} className="grid gap-4">
+            <div className="relative overflow-hidden rounded-[34px] border border-[#c8ddd3] bg-[#0f2318] shadow-[0_25px_80px_rgba(4,98,65,0.14)] dark:border-[#2a4535]">
+              <img
+                src={HERO_IMAGE}
+                alt="Lifewood team collaborating in a meeting room"
+                className="h-[420px] w-full object-cover md:h-[520px]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#07140e] via-[#07140e]/20 to-transparent" />
+
+              <div className="absolute left-5 top-5 rounded-2xl border border-white/20 bg-[#0f2318]/70 px-4 py-3 backdrop-blur-md md:left-7 md:top-7">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#a8c4b4]">Company snapshot</p>
+                <p className="mt-2 max-w-[240px] text-sm leading-6 text-white">
+                  Lifewood works at the intersection of AI data operations, quality, and global execution.
                 </p>
-              </SlideRight>
-            </FadeIn>
+              </div>
+
+              <div className="absolute bottom-5 left-5 right-5 grid gap-3 md:bottom-7 md:left-7 md:right-7 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/15 bg-[#07140e]/70 p-4 backdrop-blur-md">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFB347]">Who this page is for</p>
+                  <p className="mt-2 text-sm leading-6 text-white">
+                    Candidates, interns, researchers, operators, and contributors exploring where they fit.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-[#07140e]/70 p-4 backdrop-blur-md">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#FFB347]">Primary goal</p>
+                  <p className="mt-2 text-sm leading-6 text-white">
+                    Help people quickly understand Lifewood as a data technology company before they apply.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── WHY THIS COMPANY ─────────────────────────────────────────────── */}
+      <section className="px-6 py-14 md:px-16 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <SectionEyebrow>Why this company</SectionEyebrow>
+              <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+                A clearer picture of Lifewood,
+                <span className="block text-[#046241] dark:text-[#FFB347]">beyond a basic job listing.</span>
+              </h2>
+            </div>
+            <p className="max-w-xl text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+              The page is organized for fast scanning: company proof first, role pathways next, then hiring steps and
+              expectations. That helps users understand whether the opportunity is relevant before they commit time.
+            </p>
+          </Reveal>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {COMPANY_STATS.map((stat, index) => (
+              <Reveal key={stat.label} delay={0.06 * index}>
+                <article className="h-full rounded-[28px] border border-[#d4e4db] bg-white p-6 shadow-[0_10px_35px_rgba(4,98,65,0.05)] dark:border-[#2a4535] dark:bg-[#122318]">
+                  <p className="text-4xl font-black tracking-[-0.04em] text-[#046241] dark:text-[#FFB347]">
+                    {stat.value}
+                  </p>
+                  <h3 className="mt-4 text-[13px] font-black uppercase tracking-[0.18em] text-[#0f2318] dark:text-white">
+                    {stat.label}
+                  </h3>
+                  <p className="mt-3 text-sm leading-7 text-[#2d5040] dark:text-[#a8c4b4]">{stat.detail}</p>
+                </article>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── HERO PARALLAX IMAGE — unchanged ── */}
-      <section className="px-6 md:px-16 pb-14 md:pb-20">
-        <FadeIn>
-          <ParallaxHeroImage />
-        </FadeIn>
-      </section>
+      {/* ── DIFFERENTIATORS ──────────────────────────────────────────────── */}
+      <section className="border-y border-[#046241]/8 bg-white px-6 py-14 dark:border-[#2a4535] dark:bg-[#0d1f15] md:px-16 md:py-20">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <Reveal className="lg:sticky lg:top-28">
+            <SectionEyebrow>What sets Lifewood apart</SectionEyebrow>
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+              Practical work,
+              <span className="block text-[#046241] dark:text-[#FFB347]">not vague career marketing.</span>
+            </h2>
+            <p className="mt-5 max-w-md text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+              Instead of decorative statements, this section answers the questions candidates actually have: what kind
+              of work exists here, how the company operates, and why the experience can matter.
+            </p>
+          </Reveal>
 
-      {/* ── MOTIVATING TEAMS ── */}
-      <section className="px-6 md:px-16 pb-14 md:pb-20">
-        <div className="max-w-[1120px] mx-auto text-center">
-          <FadeIn>
-            {/* Headline — two lines clip up */}
-            <SplitLines
-              baseDelay={0}
-              lines={[
-                <h2 className="text-[40px] md:text-[60px] leading-[0.96] tracking-[-0.03em] font-black
-                               text-[#0f2318] dark:text-white">
-                  It means motivating
-                </h2>,
-                <h2 className="text-[40px] md:text-[60px] leading-[0.96] tracking-[-0.03em] font-black mb-4
-                               text-[#046241] dark:text-[#FFB347]">
-                  and growing teams
-                </h2>,
-              ]}
-            />
-
-            {/* Body — word by word stagger */}
-            <div className="mb-8">
-              <SplitWords
-                text="Teams that can initiate and learn on the run in order to deliver evolving technologies and targets. It's a big challenge, but innovation, especially across borders, has never been the easy path."
-                className="max-w-[820px] mx-auto text-[14px] md:text-[16px] leading-[1.65] text-[#1a3326]/65 dark:text-white/65"
-                baseDelay={200}
-                stagger={40}
-              />
-            </div>
-          </FadeIn>
-
-          {/* Marquee — unchanged */}
-          <FadeIn delay={120}>
-            <div className="lw-marquee-shell space-y-2">
-              <MarqueeRow items={TAG_ROWS[0]} duration={30} />
-              <MarqueeRow items={TAG_ROWS[1]} reverse duration={34} />
-              <MarqueeRow items={TAG_ROWS[2]} duration={32} />
-            </div>
-          </FadeIn>
+          <div className="grid gap-4">
+            {DIFFERENTIATORS.map((item, index) => (
+              <Reveal key={item.title} delay={0.08 * index}>
+                <article className="rounded-[30px] border border-[#d4e4db] bg-white p-7 shadow-[0_14px_45px_rgba(4,98,65,0.06)] dark:border-[#2a4535] dark:bg-[#122318] md:p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#046241] text-white shadow-[0_10px_18px_rgba(4,98,65,0.24)] dark:bg-[#FFB347] dark:text-[#0f2318]">
+                      <CheckIcon />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black tracking-tight text-[#0f2318] dark:text-white">{item.title}</h3>
+                      <p className="mt-3 max-w-2xl text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+                        {item.body}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ── CLOSING STATEMENT ── */}
-      <section className="px-6 md:px-16 pb-20 md:pb-28">
-        <div className="max-w-[1200px] mx-auto">
-          <FadeIn>
-            {/* Divider — line grows from left */}
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-2 h-2 rounded-full bg-[#046241] dark:bg-[#FFB347] flex-shrink-0" />
-              <div className="h-px flex-1 overflow-hidden bg-transparent">
-                <div
-                  ref={dividerRef}
-                  className="lw-divider-line h-full bg-gradient-to-r from-[#046241]/20 dark:from-[#FFB347]/20 to-transparent"
-                />
+      {/* ── CAREER PATHS ─────────────────────────────────────────────────── */}
+      <section className="px-6 py-14 md:px-16 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="max-w-3xl">
+            <SectionEyebrow>Career paths</SectionEyebrow>
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+              Where candidates can contribute
+              <span className="block text-[#046241] dark:text-[#FFB347]">across the Lifewood ecosystem.</span>
+            </h2>
+            <p className="mt-5 text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+              Grouping opportunities into tracks makes the experience easier to understand than showing a long flat
+              list of unrelated roles. It helps people self-select faster and reduces confusion.
+            </p>
+          </Reveal>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-3">
+            {ROLE_TRACKS.map((track, index) => (
+              <Reveal key={track.title} delay={0.06 * index}>
+                <article className="flex h-full flex-col rounded-[30px] border border-[#d4e4db] bg-white p-7 shadow-[0_14px_40px_rgba(4,98,65,0.05)] dark:border-[#2a4535] dark:bg-[#122318]">
+                  <div className="inline-flex w-fit rounded-full bg-white border border-[#d4e4db] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#046241] dark:bg-[#1a3326] dark:border-transparent dark:text-[#FFB347]">
+                    Track {index + 1}
+                  </div>
+                  <h3 className="mt-5 text-2xl font-black tracking-tight text-[#0f2318] dark:text-white">{track.title}</h3>
+                  <p className="mt-4 text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">{track.summary}</p>
+
+                  <div className="mt-6 space-y-3">
+                    {track.roles.map((role) => (
+                      <div
+                        key={role}
+                        className="flex items-start gap-3 rounded-2xl border border-[#046241]/10 bg-white px-4 py-4 dark:border-[#2a4535] dark:bg-[#1a3326]"
+                      >
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#046241] text-white dark:bg-[#FFB347] dark:text-[#0f2318]">
+                          <CheckIcon />
+                        </span>
+                        <span className="text-sm font-semibold leading-6 text-[#1a3326] dark:text-[#c8ddd3]">{role}</span>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CULTURE ──────────────────────────────────────────────────────── */}
+      <section className="px-6 py-14 md:px-16 md:py-20">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+          <Reveal className="relative overflow-hidden rounded-[34px] border border-[#c8ddd3] bg-[#0f2318] p-5 shadow-[0_24px_70px_rgba(4,98,65,0.14)] dark:border-[#2a4535]">
+            <img
+              src={CULTURE_IMAGE}
+              alt="Lifewood contributors working on AI data tasks"
+              className="h-[420px] w-full rounded-[26px] object-cover md:h-[520px]"
+            />
+            <div className="absolute inset-5 rounded-[26px] bg-gradient-to-t from-[#07140e]/90 via-transparent to-transparent" />
+            <div className="absolute bottom-10 left-10 right-10">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#FFB347]">Work environment</p>
+              <p className="mt-3 max-w-sm text-sm leading-7 text-white">
+                A strong careers page should set expectations clearly, so candidates know the culture is collaborative,
+                structured, and adaptive before they enter the funnel.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.08}>
+            <SectionEyebrow>Culture and expectations</SectionEyebrow>
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+              What people should expect
+              <span className="block text-[#046241] dark:text-[#FFB347]">when working with Lifewood.</span>
+            </h2>
+            <p className="mt-5 max-w-2xl text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+              This section reduces uncertainty. Candidates want to know how teams communicate, how work is organized,
+              and what kind of mindset is rewarded. Clear expectations improve trust and decision-making.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              {CULTURE_PILLARS.map((pillar, index) => (
+                <Reveal key={pillar.title} delay={0.12 + index * 0.08}>
+                  <article className="rounded-[26px] border border-[#d4e4db] bg-white p-6 shadow-[0_14px_36px_rgba(4,98,65,0.05)] dark:border-[#2a4535] dark:bg-[#122318]">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#046241] dark:text-[#FFB347]">
+                      {pillar.title}
+                    </p>
+                    <p className="mt-3 text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">{pillar.body}</p>
+                  </article>
+                </Reveal>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── HIRING STEPS ─────────────────────────────────────────────────── */}
+      <section className="border-y border-[#046241]/8 bg-white px-6 py-14 dark:border-[#2a4535] dark:bg-[#0d1f15] md:px-16 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="max-w-3xl">
+            <SectionEyebrow>Hiring process</SectionEyebrow>
+            <h2 className="mt-5 text-3xl font-black leading-tight tracking-[-0.04em] text-[#0f2318] dark:text-white md:text-5xl">
+              A simple path from interest
+              <span className="block text-[#046241] dark:text-[#FFB347]">to application and screening.</span>
+            </h2>
+            <p className="mt-5 text-[15px] leading-8 text-[#2d5040] dark:text-[#a8c4b4]">
+              Showing the process on the page lowers friction. Users can see what happens next before they commit to
+              the form, which makes the careers flow feel more transparent and accessible.
+            </p>
+          </Reveal>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-4">
+            {HIRING_STEPS.map((item, index) => (
+              <Reveal key={item.step} delay={0.06 * index}>
+                <article className="relative h-full rounded-[28px] border border-[#d4e4db] bg-white p-6 shadow-[0_12px_36px_rgba(4,98,65,0.06)] dark:border-[#2a4535] dark:bg-[#122318]">
+                  {/* Step number — solid color, always readable */}
+                  <div className="text-4xl font-black tracking-[-0.04em] text-[#046241]/25 dark:text-[#FFB347]/35">
+                    {item.step}
+                  </div>
+                  <h3 className="mt-4 text-xl font-black tracking-tight text-[#0f2318] dark:text-white">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[#2d5040] dark:text-[#a8c4b4]">{item.body}</p>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
+      <section className="px-6 py-16 md:px-16 md:py-24">
+        <div className="mx-auto max-w-7xl">
+          <Reveal className="overflow-hidden rounded-[36px] border border-[#0f2318]/8 bg-[#0f2318] px-7 py-8 text-white shadow-[0_30px_90px_rgba(4,98,65,0.2)] dark:border-[#2a4535] dark:bg-[#0d1f15] md:px-10 md:py-10">
+            <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#FFB347]">Ready to move forward</p>
+                <h2 className="mt-4 text-3xl font-black leading-tight tracking-[-0.04em] text-white md:text-5xl">
+                  Explore the company,
+                  <span className="block">then start your application with confidence.</span>
+                </h2>
+                <p className="mt-5 max-w-2xl text-[15px] leading-8 text-[#a8c4b4]">
+                  The redesign keeps the message practical: understand Lifewood first, then continue into the existing
+                  application form when the role and environment feel right.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                <button
+                  type="button"
+                  onClick={() => navigate("/join-us")}
+                  className="inline-flex items-center justify-center rounded-full bg-[#FFB347] px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-[#0f2318] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Go to Join Us
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/about-us")}
+                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-3.5 text-[11px] font-black uppercase tracking-[0.22em] text-white transition-colors hover:border-[#FFB347]/50 hover:text-[#FFB347]"
+                >
+                  Learn about Lifewood
+                </button>
               </div>
             </div>
-
-            {/* Pull-quote — word by word, two waves */}
-            <p className="text-center text-[24px] md:text-[40px] leading-[1.14] tracking-[-0.02em] font-medium
-                          text-[#0f2318]/90 dark:text-white/90">
-              {/* First sentence — words 0..N animate together */}
-              <SplitWords
-                text="If you're looking to turn the page on a new chapter in your career, make contact with us today."
-                baseDelay={100}
-                stagger={38}
-              />
-              {" "}
-              {/* Second sentence starts after first finishes */}
-              <SplitWords
-                text="At Lifewood, the adventure is always before you, it's why we've been described as"
-                baseDelay={800}
-                stagger={36}
-              />
-              {" "}
-              {/* Final phrase — highlighted, its own clip */}
-              <span className="lw-line-clip" style={{ display: "inline-block" }}>
-                <span
-                  ref={el => {
-                    if (!el) return;
-                    const io = new IntersectionObserver(([e]) => {
-                      if (e.isIntersecting) {
-                        el.style.transitionDelay = "1600ms";
-                        el.classList.add("in");
-                        io.disconnect();
-                      }
-                    }, { threshold: 0.08 });
-                    io.observe(el);
-                  }}
-                  className="lw-line-inner text-[#046241] dark:text-[#FFB347] font-black"
-                >
-                  "always on, never off."
-                </span>
-              </span>
-            </p>
-          </FadeIn>
+          </Reveal>
         </div>
       </section>
     </main>

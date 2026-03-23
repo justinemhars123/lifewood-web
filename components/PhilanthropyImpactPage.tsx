@@ -714,14 +714,18 @@ export default function PhilanthropyImpactPage() {
 
       {/* Ambient orbs — fixed, always visible */}
       <motion.div aria-hidden className="fixed pointer-events-none"
-        style={{ top: "8%", left: "-12%", width: 700, height: 700, filter: "blur(90px)", zIndex: 0,
-          background: "radial-gradient(circle, rgba(4,98,65,0.055) 0%, transparent 70%)" }}
+        style={{
+          top: "8%", left: "-12%", width: 700, height: 700, filter: "blur(90px)", zIndex: 0,
+          background: "radial-gradient(circle, rgba(4,98,65,0.055) 0%, transparent 70%)"
+        }}
         animate={{ scale: [1, 1.1, 1], x: [0, 22, 0] }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div aria-hidden className="fixed pointer-events-none"
-        style={{ bottom: "10%", right: "-10%", width: 580, height: 580, filter: "blur(80px)", zIndex: 0,
-          background: "radial-gradient(circle, rgba(4,98,65,0.04) 0%, transparent 70%)" }}
+        style={{
+          bottom: "10%", right: "-10%", width: 580, height: 580, filter: "blur(80px)", zIndex: 0,
+          background: "radial-gradient(circle, rgba(4,98,65,0.04) 0%, transparent 70%)"
+        }}
         animate={{ scale: [1, 1.08, 1], y: [0, -24, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 4 }}
       />
@@ -796,8 +800,10 @@ export default function PhilanthropyImpactPage() {
       >
         <div className="sticky top-0 h-screen w-full overflow-hidden">
           <div ref={heroImage}
-            style={{ position: "absolute", top: "-26%", left: 0, width: "100%", height: "156%",
-              willChange: "transform", transform: "translate3d(0,0,0) scale(1.13)" }}
+            style={{
+              position: "absolute", top: "-26%", left: 0, width: "100%", height: "156%",
+              willChange: "transform", transform: "translate3d(0,0,0) scale(1.13)"
+            }}
           >
             <img src={PARALLAX_IMAGE} alt="Philanthropy impact" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
@@ -880,7 +886,7 @@ export default function PhilanthropyImpactPage() {
                              text-3xl md:text-5xl
                              text-[#0f2318] dark:text-white">
                 Transforming
-              
+
                 <span className="text-[#046241] dark:text-[#FFB347]"> Communities</span>
                 <br />
                 Worldwide

@@ -1,7 +1,34 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence, useInView, animate } from 'framer-motion';
 
-// ─── Icons (small, used in accordion) ────────────────────────────────────────
+// ─── Animated Counter ────────────────────────────────────────────────────────
+const AnimatedCounter: React.FC<{ from?: number; to: number; suffix?: string; duration?: number }> = ({ from = 0, to, suffix = '', duration = 1.5 }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { margin: '-50px' });
+
+  useEffect(() => {
+    if (inView) {
+      const controls = animate(from, to, {
+        duration,
+        ease: 'easeOut',
+        onUpdate(value) {
+          if (ref.current) {
+            ref.current.textContent = Math.floor(value).toString() + suffix;
+          }
+        },
+      });
+      return () => controls.stop();
+    } else {
+      if (ref.current) {
+        ref.current.textContent = from.toString() + suffix;
+      }
+    }
+  }, [inView, from, to, duration, suffix]);
+
+  return <span ref={ref}>{from}{suffix}</span>;
+};
+
+// ─── Icons (small) ────────────────────────────────────────────────────────────
 const IconDataExtraction = () => (
   <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth="1.7" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
@@ -28,7 +55,7 @@ const IconAutonomousDriving = () => (
 const IconCustomerService = () => (
   <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth="1.7" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-    <circle cx="9"  cy="11" r="1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="11" r="1" fill="currentColor" stroke="none" />
     <circle cx="12" cy="11" r="1" fill="currentColor" stroke="none" />
     <circle cx="15" cy="11" r="1" fill="currentColor" stroke="none" />
   </svg>
@@ -49,8 +76,8 @@ const IconComputerVision = () => (
 );
 const IconGenealogy = () => (
   <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="4"  r="2" strokeWidth="1.7" />
-    <circle cx="5"  cy="20" r="2" strokeWidth="1.7" />
+    <circle cx="12" cy="4" r="2" strokeWidth="1.7" />
+    <circle cx="5" cy="20" r="2" strokeWidth="1.7" />
     <circle cx="19" cy="20" r="2" strokeWidth="1.7" />
     <path strokeWidth="1.7" d="M12 6v4" />
     <path strokeWidth="1.7" d="M12 10H6a1 1 0 00-1 1v7" />
@@ -58,7 +85,7 @@ const IconGenealogy = () => (
   </svg>
 );
 
-// ─── Large icon variants for the hero visual ──────────────────────────────────
+// ─── Large icon variants for hero visual & bento cards ────────────────────────
 const LargeIconDataExtraction = () => (
   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth="1.5" d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
@@ -85,7 +112,7 @@ const LargeIconAutonomousDriving = () => (
 const LargeIconCustomerService = () => (
   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
     <path strokeWidth="1.5" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-    <circle cx="9"  cy="11" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="9" cy="11" r="1.1" fill="currentColor" stroke="none" />
     <circle cx="12" cy="11" r="1.1" fill="currentColor" stroke="none" />
     <circle cx="15" cy="11" r="1.1" fill="currentColor" stroke="none" />
   </svg>
@@ -106,8 +133,8 @@ const LargeIconComputerVision = () => (
 );
 const LargeIconGenealogy = () => (
   <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="4"  r="2" strokeWidth="1.5" />
-    <circle cx="5"  cy="20" r="2" strokeWidth="1.5" />
+    <circle cx="12" cy="4" r="2" strokeWidth="1.5" />
+    <circle cx="5" cy="20" r="2" strokeWidth="1.5" />
     <circle cx="19" cy="20" r="2" strokeWidth="1.5" />
     <path strokeWidth="1.5" d="M12 6v4" />
     <path strokeWidth="1.5" d="M12 10H6a1 1 0 00-1 1v7" />
@@ -117,42 +144,38 @@ const LargeIconGenealogy = () => (
 
 // ─── Project data ─────────────────────────────────────────────────────────────
 const PROJECTS = [
-  { id: '2.1', title: 'AI Data Extraction',                   Icon: IconDataExtraction,    LargeIcon: LargeIconDataExtraction,    label: 'Data',     body: 'Using AI, we optimize the acquisition of image and text from multiple sources. Techniques include onsite scanning, drone photography, negotiation with archives and the formation of alliances with corporations, religious organizations and governments.' },
-  { id: '2.2', title: 'Machine Learning Enablement',          Icon: IconMachineLearning,   LargeIcon: LargeIconMachineLearning,   label: 'ML',       body: 'End-to-end ML enablement services: model prototyping, dataset engineering, feature stores and MLOps consultancy to help teams ship models reliably.' },
-  { id: '2.3', title: 'Autonomous Driving Technology',        Icon: IconAutonomousDriving, LargeIcon: LargeIconAutonomousDriving, label: 'Auto',     body: 'Data pipelines and annotation workflows tailored for perception stacks, sensor fusion and scenario generation for autonomous systems.' },
-  { id: '2.4', title: 'AI-Enabled Customer Service',          Icon: IconCustomerService,   LargeIcon: LargeIconCustomerService,   label: 'CX',       body: 'Conversational AI, intent classification, and retrieval-augmented systems to automate and augment customer support at scale.' },
-  { id: '2.5', title: 'Natural Language Processing & Speech', Icon: IconNLP,               LargeIcon: LargeIconNLP,               label: 'NLP',      body: 'Multilingual speech and text collection, transcription and language modeling datasets with quality control across dialects and accents.' },
-  { id: '2.6', title: 'Computer Vision (CV)',                 Icon: IconComputerVision,    LargeIcon: LargeIconComputerVision,    label: 'Vision',   body: 'Large-scale image and video collection, object detection, segmentation and temporal annotation for vision systems.' },
-  { id: '2.7', title: 'Genealogy',                           Icon: IconGenealogy,         LargeIcon: LargeIconGenealogy,         label: 'Genealogy',body: 'Specialized data curation and entity linkage for genealogical research, archival digitization and structured family-history datasets.' },
+  { id: '2.1', title: 'AI Data Extraction', Icon: IconDataExtraction, LargeIcon: LargeIconDataExtraction, label: 'Data', body: 'Using AI, we optimize the acquisition of image and text from multiple sources. Techniques include onsite scanning, drone photography, negotiation with archives and the formation of alliances with corporations, religious organizations and governments.', spanClass: 'md:col-span-2 md:row-span-2', image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.5', title: 'NLP & Speech Modeling', Icon: IconNLP, LargeIcon: LargeIconNLP, label: 'NLP', body: 'Multilingual speech and text collection, transcription and language modeling datasets with quality control across dialects and accents.', spanClass: 'md:col-span-2 md:row-span-1', image: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.3', title: 'Autonomous Driving Technology', Icon: IconAutonomousDriving, LargeIcon: LargeIconAutonomousDriving, label: 'Auto', body: 'Data pipelines and annotation workflows tailored for perception stacks, sensor fusion and scenario generation for autonomous systems.', spanClass: 'md:col-span-1 md:row-span-1', image: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.6', title: 'Computer Vision', Icon: IconComputerVision, LargeIcon: LargeIconComputerVision, label: 'Vision', body: 'Large-scale image and video collection, object detection, segmentation and temporal annotation for vision systems.', spanClass: 'md:col-span-1 md:row-span-1', image: 'https://images.unsplash.com/photo-1527430253228-e93688616381?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.4', title: 'AI-Enabled Customer Service', Icon: IconCustomerService, LargeIcon: LargeIconCustomerService, label: 'CX', body: 'Conversational AI, intent classification, and retrieval-augmented systems to automate and augment customer support at scale.', spanClass: 'md:col-span-2 md:row-span-1 lg:col-span-1', image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.2', title: 'ML Enablement', Icon: IconMachineLearning, LargeIcon: LargeIconMachineLearning, label: 'ML', body: 'End-to-end ML enablement services: model prototyping, dataset engineering, feature stores and MLOps consultancy to help teams ship models reliably.', spanClass: 'md:col-span-2 md:row-span-1 lg:col-span-2', image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1000' },
+  { id: '2.7', title: 'Genealogy', Icon: IconGenealogy, LargeIcon: LargeIconGenealogy, label: 'Genealogy', body: 'Specialized data curation and entity linkage for genealogical research, archival digitization and structured family-history datasets.', spanClass: 'md:col-span-2 md:row-span-1 lg:col-span-1', image: 'https://images.unsplash.com/photo-1505098660655-24d1a4ee110b?auto=format&fit=crop&q=80&w=1000' },
 ];
 
-// ─── Icon node positions for the hero constellation ──────────────────────────
-// 7 nodes: 1 centre + 6 around (hex pattern), in a 340×300 canvas
+// ─── Project Constellation Logic ───────────────────────────────────────────────
 const NODE_POSITIONS = [
-  { cx: 170, cy: 150 }, // centre — index 0 = Data Extraction
-  { cx: 290, cy:  80 }, // top-right
+  { cx: 170, cy: 150 }, // centre
+  { cx: 290, cy: 80 }, // top-right
   { cx: 290, cy: 220 }, // bottom-right
   { cx: 170, cy: 280 }, // bottom
-  { cx:  50, cy: 220 }, // bottom-left
-  { cx:  50, cy:  80 }, // top-left
-  { cx: 170, cy:  22 }, // top
+  { cx: 50, cy: 220 }, // bottom-left
+  { cx: 50, cy: 80 }, // top-left
+  { cx: 170, cy: 22 }, // top
 ];
-
-// Which pairs to connect with lines (hub-and-spoke + ring)
 const EDGES = [
-  [0,1],[0,2],[0,3],[0,4],[0,5],[0,6], // hub spokes
-  [1,6],[6,5],[5,4],[4,3],[3,2],[2,1], // outer ring
+  [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6], // hub spokes
+  [1, 6], [6, 5], [5, 4], [4, 3], [3, 2], [2, 1], // outer ring
 ];
 
-// ─── Animated hero constellation ─────────────────────────────────────────────
-const ProjectConstellation: React.FC = () => {
+const ProjectConstellation: React.FC<{ projects: typeof PROJECTS }> = ({ projects }) => {
   const [activeNode, setActiveNode] = useState<number | null>(null);
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center select-none">
+    <div className="relative w-full h-full flex items-center justify-center select-none pt-4">
       {/* Radial background glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-64 h-64 rounded-full bg-[#046241]/15 dark:bg-[#4ade80]/8 blur-[60px]" />
+        <div className="w-64 h-64 rounded-full bg-[#046241]/15 dark:bg-[#4ade80]/15 blur-[80px]" />
       </div>
 
       <svg
@@ -160,7 +183,7 @@ const ProjectConstellation: React.FC = () => {
         className="w-full max-w-[340px] overflow-visible"
         style={{ filter: 'drop-shadow(0 0 0px transparent)' }}
       >
-        {/* ── Connection lines ── */}
+        {/* Connection lines */}
         {EDGES.map(([a, b], i) => {
           const pa = NODE_POSITIONS[a];
           const pb = NODE_POSITIONS[b];
@@ -181,8 +204,8 @@ const ProjectConstellation: React.FC = () => {
           );
         })}
 
-        {/* ── Animated travelling dot along spokes ── */}
-        {[0,1,2,3,4,5].map((spokeIdx) => {
+        {/* Animated travelling dot */}
+        {[0, 1, 2, 3, 4, 5].map((spokeIdx) => {
           const pa = NODE_POSITIONS[0];
           const pb = NODE_POSITIONS[spokeIdx + 1];
           return (
@@ -207,12 +230,12 @@ const ProjectConstellation: React.FC = () => {
           );
         })}
 
-        {/* ── Icon nodes ── */}
-        {PROJECTS.map((p, i) => {
+        {/* Icon nodes */}
+        {projects.map((p, i) => {
           const pos = NODE_POSITIONS[i];
           const isActive = activeNode === i;
           const isCenter = i === 0;
-          const nodeSize = isCenter ? 38 : 32;
+          const nodeSize = isCenter ? 42 : 36;
 
           return (
             <motion.g
@@ -248,7 +271,6 @@ const ProjectConstellation: React.FC = () => {
                 }}
               />
 
-              {/* Float animation wrapper */}
               <motion.g
                 animate={{ y: [0, i % 2 === 0 ? -5 : 5, 0] }}
                 transition={{
@@ -258,13 +280,12 @@ const ProjectConstellation: React.FC = () => {
                   delay: i * 0.4,
                 }}
               >
-                {/* Node circle bg */}
                 <motion.circle
                   cx={pos.cx}
                   cy={pos.cy}
                   r={nodeSize / 2}
                   className="cursor-pointer"
-                  fill={isActive ? '#046241' : (isCenter ? '#FFB347' : 'transparent')}
+                  fill={isActive ? '#046241' : isCenter ? '#FFB347' : 'transparent'}
                   stroke={isCenter ? '#FFB347' : '#046241'}
                   strokeWidth={isActive ? 2 : 1.5}
                   strokeOpacity={isActive ? 1 : 0.55}
@@ -272,9 +293,9 @@ const ProjectConstellation: React.FC = () => {
                     fill: isActive
                       ? '#046241'
                       : isCenter
-                        ? '#FFB347'
-                        : 'rgba(4,98,65,0.12)',
-                    stroke: isCenter ? '#FFB347' : (isActive ? '#4ade80' : '#046241'),
+                      ? '#FFB347'
+                      : 'rgba(4,98,65,0.08)',
+                    stroke: isCenter ? '#FFB347' : isActive ? '#4ade80' : '#046241',
                     strokeOpacity: isActive ? 1 : isCenter ? 0.9 : 0.55,
                   }}
                   transition={{ duration: 0.25 }}
@@ -282,7 +303,6 @@ const ProjectConstellation: React.FC = () => {
                   onMouseLeave={() => setActiveNode(null)}
                 />
 
-                {/* Icon — centred in node */}
                 <foreignObject
                   x={pos.cx - 14}
                   y={pos.cy - 14}
@@ -291,24 +311,29 @@ const ProjectConstellation: React.FC = () => {
                   className="pointer-events-none"
                 >
                   <div
-                    className={`w-full h-full flex items-center justify-center
-                      ${isCenter ? 'text-white' : isActive ? 'text-white' : 'text-[#046241] dark:text-[#4ade80]'}`}
+                    className={`w-full h-full flex items-center justify-center transition-colors duration-300
+                      ${
+                        isCenter
+                          ? 'text-white'
+                          : isActive
+                          ? 'text-white'
+                          : 'text-[#046241] dark:text-[#4ade80]'
+                      }`}
                   >
                     <p.LargeIcon />
                   </div>
                 </foreignObject>
 
-                {/* Label below node */}
                 <motion.text
                   x={pos.cx}
-                  y={pos.cy + nodeSize / 2 + 13}
+                  y={pos.cy + nodeSize / 2 + 15}
                   textAnchor="middle"
-                  fontSize="8"
-                  fontWeight="700"
+                  fontSize="9"
+                  fontWeight="800"
                   letterSpacing="0.08em"
                   fill={isActive ? '#4ade80' : isCenter ? '#FFB347' : '#046241'}
                   fillOpacity={isActive ? 1 : 0.65}
-                  className="uppercase pointer-events-none font-black"
+                  className="uppercase pointer-events-none"
                   animate={{ fillOpacity: isActive ? 1 : 0.65 }}
                   transition={{ duration: 0.2 }}
                 >
@@ -323,335 +348,358 @@ const ProjectConstellation: React.FC = () => {
   );
 };
 
-// ─── Stat pill ────────────────────────────────────────────────────────────────
-const StatPill: React.FC<{ value: string; label: string }> = ({ value, label }) => (
-  <div className="flex flex-col items-center px-5 py-3 rounded-2xl
-                  bg-[#046241]/6 dark:bg-[#4ade80]/6
-                  border border-[#046241]/12 dark:border-[#4ade80]/15">
-    <span className="text-xl font-black leading-none text-[#046241] dark:text-[#4ade80]">{value}</span>
-    <span className="mt-0.5 text-[9.5px] font-bold uppercase tracking-[0.18em]
-                     text-[#1a3326]/45 dark:text-white/65">{label}</span>
-  </div>
+// ─── Stat Card (For "By the Numbers" Section) ─────────────────────────────────
+const StatCard: React.FC<{ endValue: number; suffix: string; label: string; delay: number }> = ({ endValue, suffix, label, delay }) => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95, y: 15 }}
+    whileInView={{ opacity: 1, scale: 1, y: 0 }}
+    viewport={{ margin: '-50px' }}
+    transition={{ duration: 0.6, delay }}
+    className="flex flex-col items-center justify-center p-6 md:p-8 rounded-[1.5rem]
+               bg-white/60 dark:bg-[#132d1f]/40 backdrop-blur-md
+               border border-[#dde8e2] dark:border-white/10
+               shadow-[0_8px_30px_rgba(4,98,65,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)]
+               hover:shadow-[0_12px_40px_rgba(4,98,65,0.12)] dark:hover:shadow-[0_12px_40px_rgba(74,222,128,0.1)]
+               transition-all duration-300"
+  >
+    <div className="text-4xl md:text-5xl font-black text-[#046241] dark:text-[#4ade80] tracking-tighter mb-1 select-none">
+      <AnimatedCounter to={endValue} suffix={suffix} duration={2} />
+    </div>
+    <div className="text-[11px] md:text-xs font-bold uppercase tracking-[0.2em] text-[#1a3326]/60 dark:text-white/60 select-none">
+      {label}
+    </div>
+  </motion.div>
 );
 
-// ─── Accordion item ───────────────────────────────────────────────────────────
-const AccordionItem: React.FC<{
+// ─── Bento Box Card ───────────────────────────────────────────────────────────
+const BentoCard: React.FC<{
   project: typeof PROJECTS[0];
-  isOpen: boolean;
-  index: number;
-  onToggle: () => void;
-}> = ({ project, isOpen, index, onToggle }) => (
-  <motion.div
-    layout="position"
-    initial={{ opacity: 0, y: 10 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ duration: 0.4, delay: index * 0.05 }}
-    whileHover={!isOpen ? { y: -2, transition: { type: 'spring', stiffness: 400, damping: 25 } } : {}}
-    className={`
-      rounded-2xl border overflow-hidden cursor-pointer
-      transition-all duration-300
-      ${isOpen
-        ? 'bg-white dark:bg-[#1a3d28] border-[#046241]/40 dark:border-[#4ade80]/35 shadow-[0_6px_32px_rgba(4,98,65,0.15)] dark:shadow-[0_6px_32px_rgba(74,222,128,0.12)]'
-        : 'bg-white dark:bg-[#132d1f] border-[#dde8e2] dark:border-white/15 hover:border-[#046241]/30 dark:hover:border-[#4ade80]/25 hover:shadow-[0_4px_20px_rgba(4,98,65,0.1)] dark:hover:shadow-[0_4px_20px_rgba(74,222,128,0.1)]'
-      }
-    `}
-  >
-    <button onClick={onToggle} className="w-full text-left px-5 py-[15px] flex items-center gap-4 group">
-      {/* Icon */}
-      <div className={`
-        flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-250
-        ${isOpen
-          ? 'bg-[#046241] text-white shadow-[0_4px_14px_rgba(4,98,65,0.4)]'
-          : 'bg-[#eaf4ef] dark:bg-[#1a4a2e] text-[#046241] dark:text-[#6ee7a0] group-hover:bg-[#d5ecdf] dark:group-hover:bg-[#1f5a36]'
-        }
-      `}>
-        <project.Icon />
+  delay: number;
+}> = ({ project, delay }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-50px' }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      className={`group relative overflow-hidden rounded-[2rem] p-8 flex flex-col justify-end
+                  bg-[#061410]
+                  border border-[#dde8e2] dark:border-white/10
+                  shadow-[0_4px_30px_rgba(19,48,32,0.07)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)]
+                  min-h-[280px] cursor-default
+                  ${project.spanClass} transition-shadow duration-500`}
+    >
+      {/* Background Image & Gradient */}
+      {project.image && (
+        <>
+          <img 
+            src={project.image} 
+            alt={project.title}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-40 group-hover:opacity-50"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#061410] via-[#061410]/70 to-transparent pointer-events-none" />
+        </>
+      )}
+
+      {/* Decorative Glow */}
+      <div className="absolute -right-20 -top-20 w-48 h-48 rounded-full
+                      bg-[#046241]/20 dark:bg-[#4ade80]/15 blur-[50px]
+                      group-hover:bg-[#046241]/30 dark:group-hover:bg-[#4ade80]/25
+                      transition-colors duration-700 pointer-events-none" />
+
+      <div className="relative z-10 h-full flex flex-col">
+        <div className="flex justify-between items-start mb-auto">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center
+                          bg-white/10 text-white backdrop-blur-md
+                          group-hover:-translate-y-1 group-hover:scale-105 transition-all duration-300
+                          shadow-lg border border-white/10">
+            <project.LargeIcon />
+          </div>
+          <span className="px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md
+                           border border-white/20
+                           text-[9px] font-black uppercase tracking-[0.2em]
+                           text-white shadow-sm">
+            {project.label}
+          </span>
+        </div>
+
+        <div className="mt-8 transition-transform duration-500 ease-out group-hover:-translate-y-1">
+          <h3 className="text-[22px] md:text-2xl font-black text-white mb-2.5
+                         leading-tight tracking-tight">
+            {project.title}
+          </h3>
+          <p className="text-[14px] leading-relaxed text-white/70
+                        group-hover:text-white/90 transition-colors duration-300">
+            {project.body}
+          </p>
+        </div>
       </div>
+    </motion.div>
+  );
+};
 
-      {/* Title */}
-      <span className={`
-        flex-1 text-[13.5px] font-bold leading-snug transition-colors duration-200
-        ${isOpen
-          ? 'text-[#046241] dark:text-[#6ee7a0]'
-          : 'text-[#1a3326] dark:text-white group-hover:text-[#046241] dark:group-hover:text-[#6ee7a0]'
-        }
-      `}>
-        {project.title}
-      </span>
+// ─── Main Page Component ──────────────────────────────────────────────────────
+const AIProjectsPage: React.FC = () => {
+  return (
+    <div className="w-full min-h-screen bg-[#fafcfb] dark:bg-[#061410] transition-colors duration-500 font-sans">
+      
+      {/* 1. Immersive Hero Section */}
+      <section className="relative px-6 md:px-16 pt-12 pb-20 lg:pt-16 lg:pb-32 overflow-hidden">
+        <div className="max-w-[1240px] mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+            
+            {/* Left Box: Value Prop */}
+            <div className="relative z-10">
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="inline-flex items-center gap-2.5 px-4 py-2 mb-6 rounded-full
+                           bg-white/80 dark:bg-[#132d1f]/80 backdrop-blur-md
+                           border border-[#046241]/15 dark:border-[#4ade80]/20 shadow-sm"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#FFB347] animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-[#046241] dark:text-[#4ade80]">
+                  Igniting AI Innovation
+                </span>
+              </motion.div>
 
-      {/* Toggle */}
-      <motion.div
-        animate={{ rotate: isOpen ? 45 : 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-        className={`
-          flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200
-          ${isOpen
-            ? 'bg-[#046241]/15 dark:bg-[#4ade80]/15 text-[#046241] dark:text-[#4ade80]'
-            : 'bg-[#e8f0eb] dark:bg-white/12 text-[#1a3326] dark:text-white/80 group-hover:bg-[#d5ecdf] dark:group-hover:bg-white/18 group-hover:text-[#046241] dark:group-hover:text-white'
-          }
-        `}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v14M5 12h14" />
-        </svg>
-      </motion.div>
-    </button>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.1 }}
+                className="text-6xl md:text-7xl lg:text-[80px] font-black tracking-[-0.04em] leading-[0.9] mb-6
+                           text-[#0f2318] dark:text-white"
+              >
+                Data for <br className="hidden md:block" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#046241] to-[#12a16d]
+                                 dark:from-[#4ade80] dark:to-[#12a16d]">
+                  Intelligence
+                </span>
+              </motion.h1>
 
-    <AnimatePresence initial={false}>
-      {isOpen && (
-        <motion.div
-          key="body"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="overflow-hidden"
-        >
-          <div className="px-5 pb-5">
-            <div className="ml-14">
-              <div className="h-px bg-[#046241]/12 dark:bg-[#4ade80]/15 mb-4" />
-              <p className="text-[13px] leading-[1.8] text-[#1a3326]/65 dark:text-white/80">
-                {project.body}
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.2 }}
+                className="max-w-md text-base md:text-lg leading-[1.6] text-[#1a3326]/70 dark:text-white/70 mb-10"
+              >
+                We deliver end-to-end data engineering solutions — from privacy-safe collection to large-scale annotation pipelines — powering enterprise-grade models globally.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.3 }}
+                className="flex flex-col sm:flex-row gap-4"
+              >
+                <a href="#core-capabilities" className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full
+                               bg-[#046241] dark:bg-[#4ade80] 
+                               text-white dark:text-[#061410] text-[12px] font-bold uppercase tracking-[0.15em]
+                               hover:scale-105 hover:shadow-[0_8px_30px_rgba(4,98,65,0.4)] dark:hover:shadow-[0_8px_30px_rgba(74,222,128,0.3)]
+                               transition-all duration-300">
+                  Explore Domains
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </a>
+              </motion.div>
+            </div>
+
+            {/* Right Box: Constellation */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="relative h-[400px] lg:h-[480px] w-full flex items-center justify-center"
+            >
+              <div className="absolute inset-0 rounded-[3rem]
+                              bg-white/40 dark:bg-[#0d2018]/60 backdrop-blur-2xl
+                              border-2 border-white/50 dark:border-white/5
+                              shadow-[0_8px_32px_rgba(4,98,65,0.05)] dark:shadow-none" />
+              <ProjectConstellation projects={PROJECTS} />
+            </motion.div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* 2. Global Impact / "By The Numbers" */}
+      <section className="relative px-6 md:px-16 pb-24 z-20 -mt-8">
+        <div className="max-w-[1240px] mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <StatCard endValue={7} suffix="" label="Core Domains" delay={0.1} />
+            <StatCard endValue={30} suffix="+" label="Countries Operated" delay={0.2} />
+            <StatCard endValue={10} suffix="M+" label="Datapoints Processed" delay={0.3} />
+          </div>
+        </div>
+      </section>
+
+      {/* 3. Core Capabilities Grid (Bento Box) */}
+      <section id="core-capabilities" className="px-6 md:px-16 py-24 bg-white/50 dark:bg-[#061410] border-t border-[#dde8e2] dark:border-white/5 relative">
+        <div className="max-w-[1240px] mx-auto">
+          
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="inline-flex items-center justify-center px-4 py-1.5 rounded-full mb-4
+                         bg-[#046241]/5 dark:bg-[#4ade80]/10 border border-[#046241]/10 dark:border-[#4ade80]/20"
+            >
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#046241] dark:text-[#4ade80]">Capabilities</span>
+            </motion.div>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-4xl md:text-5xl font-black text-[#0f2318] dark:text-white tracking-tight leading-tight"
+            >
+              Building the foundation for <br className="hidden md:block"/> next-generation models.
+            </motion.h2>
+          </div>
+
+          {/* The Bento Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 auto-rows-auto md:auto-rows-[minmax(120px,auto)] gap-5 lg:gap-6">
+            {PROJECTS.map((project, index) => (
+              <BentoCard key={project.id} project={project} delay={0.1 + index * 0.05} />
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* 4. The Lifewood Advantage / Process */}
+      <section className="px-6 md:px-16 py-32 bg-[#fafcfb] dark:bg-[#0d2018] relative overflow-hidden">
+        {/* Decorative Grid Background */}
+        <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
+             style={{ backgroundImage: 'radial-gradient(#046241 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
+             
+        <div className="max-w-[1240px] mx-auto relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          
+          <motion.div
+             initial={{ opacity: 0, x: -30 }}
+             whileInView={{ opacity: 1, x: 0 }}
+             viewport={{ once: true }}
+             transition={{ duration: 0.8 }}
+             className="relative rounded-[2.5rem] overflow-hidden aspect-square md:aspect-[4/3] lg:aspect-[4/5]
+                        shadow-[0_20px_60px_rgba(4,98,65,0.15)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+          >
+            <img
+              src="https://framerusercontent.com/images/RIqv6T7aFrp5Q9X85Zqy55KQ8x4.png"
+              alt="Lifewood Operations"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#061410] via-transparent to-transparent opacity-80" />
+            
+            {/* Overlay Glass Box */}
+            <div className="absolute bottom-6 left-6 right-6 p-6 rounded-[1.5rem]
+                            bg-white/10 backdrop-blur-xl border border-white/20">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-[#4ade80] flex items-center justify-center text-[#061410]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <h4 className="text-white font-bold text-lg">Ethical Edge</h4>
+              </div>
+              <p className="text-white/80 text-sm leading-relaxed">
+                Prioritizing strict data compliance and integrity in every step of our annotation pipeline.
               </p>
-              <a href="/contact" className="inline-flex items-center gap-1.5 mt-4 text-[10.5px] font-black uppercase tracking-[0.22em] text-[#046241] dark:text-[#4ade80] opacity-75 hover:opacity-100 transition-opacity">
-                Learn more
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
+            </div>
+          </motion.div>
+
+          <div>
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-4xl md:text-5xl font-black text-[#0f2318] dark:text-white tracking-tight mb-6"
+            >
+              The Lifewood Advantage
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="text-lg text-[#1a3326]/70 dark:text-white/70 leading-relaxed mb-10"
+            >
+              Our process represents the highest standard in data engineering, combining cutting-edge technology with rigorous quality assurance protocols.
+            </motion.p>
+
+            <div className="space-y-8">
+              {[
+                { title: 'Global Sourcing', desc: 'Curating diverse datasets from 30+ countries to minimize bias.' },
+                { title: 'Precision Annotation', desc: 'Expert teams and robust AI-assistance pipelines ensuring 99%+ accuracy.' },
+                { title: 'Secure Infrastructure', desc: 'Enterprise-grade security protecting sensitive intellectual property.' }
+              ].map((item, idx) => (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.2 + idx * 0.1 }}
+                  className="flex gap-5 group"
+                >
+                  <div className="flex-shrink-0 mt-1 w-8 h-8 rounded-full border-2 border-[#046241]/20 dark:border-[#4ade80]/30 
+                                  flex items-center justify-center text-[10px] font-black text-[#046241] dark:text-[#4ade80]
+                                  group-hover:bg-[#046241] group-hover:dark:bg-[#4ade80] group-hover:text-white group-hover:dark:text-[#061410]
+                                  transition-all duration-300">
+                    0{idx + 1}
+                  </div>
+                  <div>
+                    <h4 className="text-xl font-bold text-[#0f2318] dark:text-white mb-1.5">{item.title}</h4>
+                    <p className="text-[14px] text-[#1a3326]/60 dark:text-white/60 leading-relaxed max-w-md">{item.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Final CTA Banner */}
+      <section className="px-6 md:px-16 py-20 pb-32 bg-[#fafcfb] dark:bg-[#061410]">
+        <motion.div
+          initial={{ opacity: 0, y: 30, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="max-w-[1240px] mx-auto rounded-[3rem] overflow-hidden relative"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#046241] to-[#0a2e1f] dark:from-[#134932] dark:to-[#061410] z-0" />
+          
+          <div className="absolute top-0 right-0 w-full h-full opacity-30 pointer-events-none z-0" 
+               style={{ 
+                 background: 'radial-gradient(circle at 80% 0%, #4ade80 0%, transparent 50%), radial-gradient(circle at 0% 100%, #FFB347 0%, transparent 40%)'
+               }} 
+          />
+
+          <div className="relative z-10 px-8 py-20 md:py-28 text-center max-w-3xl mx-auto flex flex-col items-center">
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-6 leading-[1.05]">
+              Ready to build <span className="text-[#4ade80]">smarter AI?</span>
+            </h2>
+            <p className="text-lg text-white/80 mb-10 max-w-xl">
+              Partner with Lifewood to scale your data pipelines with confidence and precision. Let's discuss your next breakthrough.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 items-center w-full justify-center">
+              <a href="/contact"
+                 className="px-8 py-4 rounded-full bg-[#4ade80] text-[#061410] font-black uppercase text-xs tracking-[0.15em]
+                            hover:bg-white transition-colors duration-300 shadow-[0_4px_20px_rgba(74,222,128,0.4)]
+                            w-full sm:w-auto text-center">
+                Talk to our Experts
+              </a>
+              <a href="/about-us"
+                 className="px-8 py-4 rounded-full bg-transparent border border-white/30 text-white font-black uppercase text-xs tracking-[0.15em]
+                            hover:bg-white/10 transition-colors duration-300 w-full sm:w-auto text-center">
+                Learn About Us
               </a>
             </div>
           </div>
         </motion.div>
-      )}
-    </AnimatePresence>
-  </motion.div>
-);
+      </section>
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-const AIProjectsPage: React.FC = () => {
-  const [open, setOpen] = useState<string | null>('');
-
-  return (
-    <section className="px-6 md:px-16 py-24 bg-brand-paper dark:bg-brand-dark transition-colors duration-500">
-      <div className="max-w-[1200px] mx-auto">
-
-        {/* ── Header — text LEFT, constellation RIGHT ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-8 items-center mb-16">
-
-          {/* Left: text */}
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="inline-flex items-center gap-2 px-4 py-2 mb-5 rounded-full
-                         bg-white dark:bg-[#1a3326]
-                         border border-[#046241]/15 dark:border-[#4ade80]/20 shadow-sm"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347] animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#046241] dark:text-[#4ade80]">
-                Projects
-              </span>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.07 }}
-              className="text-5xl md:text-6xl font-black tracking-[-0.03em] leading-[0.95] mb-5
-                         text-[#0f2318] dark:text-white"
-            >
-              AI&nbsp;
-              <span className="text-[#046241] dark:text-[#FFB347]">projects</span>
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.13 }}
-              className="max-w-lg text-[15px] leading-relaxed text-[#1a3326]/60 dark:text-white/75 mb-8"
-            >
-              From building AI datasets in diverse languages and environments to
-              developing platforms that open new opportunities in under-resourced
-              economies — our projects focus on integrity and people.
-            </motion.p>
-
-            {/* Quick domain pills */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-              className="flex flex-wrap gap-2"
-            >
-              {PROJECTS.map((p, i) => (
-                <motion.div
-                  key={p.id}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.25 + i * 0.06, type: 'spring', stiffness: 200 }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
-                             bg-white dark:bg-[#132d1f]
-                             border border-[#046241]/15 dark:border-[#4ade80]/20
-                             text-[10px] font-bold uppercase tracking-[0.15em]
-                             text-[#046241] dark:text-[#4ade80]
-                             hover:bg-[#046241] hover:text-white dark:hover:bg-[#046241]
-                             hover:border-[#046241] cursor-default
-                             transition-all duration-200 group"
-                >
-                  <span className="w-1 h-1 rounded-full bg-current opacity-60 group-hover:opacity-100" />
-                  {p.label}
-                </motion.div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Right: animated icon constellation */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="relative h-[320px] lg:h-[340px]"
-          >
-            {/* Decorative background panel */}
-            <div className="absolute inset-4 rounded-3xl
-                            bg-white/60 dark:bg-[#0d2018]/80
-                            border border-[#046241]/10 dark:border-[#4ade80]/12
-                            backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]
-                            dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" />
-
-            {/* Corner accent marks */}
-            {['top-6 left-6', 'top-6 right-6', 'bottom-6 left-6', 'bottom-6 right-6'].map((pos, i) => (
-              <div key={i} className={`absolute ${pos} w-4 h-4 pointer-events-none`}>
-                <div className="absolute top-0 left-0 w-3 h-px bg-[#046241]/30 dark:bg-[#4ade80]/30" />
-                <div className="absolute top-0 left-0 h-3 w-px bg-[#046241]/30 dark:bg-[#4ade80]/30" />
-              </div>
-            ))}
-
-            {/* Constellation SVG */}
-            <ProjectConstellation />
-
-            {/* Hover hint */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 2 }}
-              className="absolute bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap"
-            >
-              <span className="text-[9px] font-bold uppercase tracking-[0.22em]
-                               text-[#046241]/40 dark:text-[#4ade80]/35">
-                Hover to explore
-              </span>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ── Two-column body ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.08fr] gap-8 items-start">
-
-          {/* LEFT — image + info card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="lg:sticky lg:top-8 rounded-[1.5rem] overflow-hidden
-                       bg-white dark:bg-[#132d1f]
-                       border border-[#dde8e2] dark:border-white/15
-                       shadow-[0_4px_30px_rgba(19,48,32,0.07)]
-                       dark:shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
-          >
-            <div className="relative" style={{ aspectRatio: '16/11' }}>
-              <img
-                src="https://framerusercontent.com/images/RIqv6T7aFrp5Q9X85Zqy55KQ8x4.png"
-                alt="AI Projects"
-                className="w-full h-full object-cover object-center"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#061410]/85 via-[#061410]/20 to-transparent" />
-              <div className="absolute bottom-4 left-4">
-                <div className="inline-flex items-center gap-2 bg-black/30 backdrop-blur-lg border border-white/20 px-3 py-1.5 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#FFB347] animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
-                    {PROJECTS.length} active domains
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-7">
-              <h3 className="text-lg font-black tracking-tight mb-2 text-[#0f2318] dark:text-white">
-                Global Data Engineering
-              </h3>
-              <p className="text-[13.5px] leading-[1.75] mb-6 text-[#1a3326]/62 dark:text-white/85">
-                We deliver end-to-end AI data solutions — from privacy-safe collection
-                and large-scale annotation to managed dataset pipelines that power
-                enterprise-grade models across every domain we serve.
-              </p>
-
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <StatPill value="7"    label="Domains"    />
-                <StatPill value="30+"  label="Countries"  />
-                <StatPill value="10M+" label="Datapoints" />
-              </div>
-
-              <a
-                href="/contact"
-                className="group inline-flex items-center gap-2.5 px-6 py-3 rounded-full w-full justify-center
-                           bg-[#046241] hover:bg-[#03532f] dark:hover:bg-[#04714a]
-                           text-white text-[12px] font-black uppercase tracking-[0.18em]
-                           shadow-[0_4px_18px_rgba(4,98,65,0.35)]
-                           hover:shadow-[0_6px_24px_rgba(4,98,65,0.5)]
-                           hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
-              >
-                Contact us
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full
-                                 bg-white/20 group-hover:bg-white/30 transition-colors duration-200">
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </span>
-              </a>
-            </div>
-          </motion.div>
-
-          {/* RIGHT — accordion */}
-          <div>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="mb-7"
-            >
-              <h2 className="text-[1.4rem] font-black tracking-tight mb-1.5 text-[#0f2318] dark:text-white">
-                What we currently handle
-              </h2>
-              <p className="text-[13px] text-[#1a3326]/50 dark:text-white/60">
-                A selection of our active projects and capabilities.
-              </p>
-            </motion.div>
-
-            <div className="space-y-2.5">
-              {PROJECTS.map((p, i) => (
-                <AccordionItem
-                  key={p.id}
-                  project={p}
-                  index={i}
-                  isOpen={open === p.id}
-                  onToggle={() => setOpen(open === p.id ? null : p.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
+    </div>
   );
 };
 
