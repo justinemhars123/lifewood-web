@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+﻿import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   motion,
   useMotionValue,
@@ -226,14 +226,18 @@ export default function TypeAPage() {
     <section className="bg-brand-paper dark:bg-brand-dark transition-colors duration-500 relative overflow-hidden">
       {/* Ambient orbs — brand green only */}
       <motion.div aria-hidden className="absolute pointer-events-none"
-        style={{ top: "-10%", left: "-8%", width: 500, height: 500, filter: "blur(60px)",
-          background: "radial-gradient(circle, rgba(4,98,65,0.07) 0%, transparent 70%)" }}
+        style={{
+          top: "-10%", left: "-8%", width: 500, height: 500, filter: "blur(60px)",
+          background: "radial-gradient(circle, rgba(4,98,65,0.07) 0%, transparent 70%)"
+        }}
         animate={{ scale: [1, 1.12, 1], x: [0, 20, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div aria-hidden className="absolute pointer-events-none"
-        style={{ bottom: "5%", right: "-6%", width: 400, height: 400, filter: "blur(50px)",
-          background: "radial-gradient(circle, rgba(4,98,65,0.05) 0%, transparent 70%)" }}
+        style={{
+          bottom: "5%", right: "-6%", width: 400, height: 400, filter: "blur(50px)",
+          background: "radial-gradient(circle, rgba(4,98,65,0.05) 0%, transparent 70%)"
+        }}
         animate={{ scale: [1, 1.08, 1], y: [0, -16, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
       />

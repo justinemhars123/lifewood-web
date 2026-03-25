@@ -178,6 +178,8 @@ export default function AdminApplicantsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   const [viewApplicant, setViewApplicant] = useState<Applicant | null>(null);
   const [viewApplicantResults, setViewApplicantResults] = useState<InterviewTranscriptEntry[] | null>(null);
   const [viewApplicantScore, setViewApplicantScore] = useState<number | null>(null);
@@ -515,6 +517,17 @@ export default function AdminApplicantsPage() {
       return matchesQuery && matchesRole && matchesStatus;
     });
   }, [searchTerm, applicants, roleFilter, statusFilter]);
+
+  // Reset to page 1 whenever filters/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredApplicants.length / PAGE_SIZE));
+  const paginatedApplicants = filteredApplicants.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const applicantStats = useMemo(() => {
     const screeningQueue = applicants.filter((entry) => entry.status === "Pending Interview").length;
@@ -968,7 +981,7 @@ export default function AdminApplicantsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredApplicants.map((entry) => (
+                    paginatedApplicants.map((entry) => (
                       <tr key={entry.id} className="border-t border-[#ecf1ee]">
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-3">
@@ -1004,6 +1017,51 @@ export default function AdminApplicantsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination controls */}
+            {!loading && filteredApplicants.length > 0 && (
+              <div className="flex items-center justify-between gap-3 border-t border-[#ecf2ee] px-4 py-3">
+                <p className="text-[12px] font-semibold text-[#1a3326]/55">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredApplicants.length)} of {filteredApplicants.length} applicants
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#d9e6df] bg-white text-[#046241] text-[12px] font-bold disabled:opacity-40 hover:bg-[#f0f7f3] transition-colors"
+                    aria-label="Previous page"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`h-8 w-8 flex items-center justify-center rounded-lg border text-[12px] font-bold transition-colors ${
+                        page === currentPage
+                          ? "border-[#046241] bg-[#046241] text-white"
+                          : "border-[#d9e6df] bg-white text-[#1a3326]/70 hover:bg-[#f0f7f3]"
+                      }`}
+                      aria-label={`Page ${page}`}
+                      aria-current={page === currentPage ? "page" : undefined}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border border-[#d9e6df] bg-white text-[#046241] text-[12px] font-bold disabled:opacity-40 hover:bg-[#f0f7f3] transition-colors"
+                    aria-label="Next page"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {viewApplicant && (

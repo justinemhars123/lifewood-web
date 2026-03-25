@@ -167,7 +167,7 @@ function buildSeries<T>(
   }));
 }
 
-function BarChart({
+function SvgLineChart({
   title,
   subtitle,
   series,
@@ -179,61 +179,135 @@ function BarChart({
   color: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const maxValue = Math.max(...series.map((point) => point.value), 1);
+  const maxValue = Math.max(...series.map((d) => d.value), 1);
+  const width = 400;
+  const height = 100;
+  const padX = 16;
+  const padY = 12;
+  const pathD = series
+    .map((pt, i) => {
+      const x = padX + (i * (width - 2 * padX)) / Math.max(series.length - 1, 1);
+      const y = height - padY - (pt.value / maxValue) * (height - 2 * padY);
+      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+  const fillD = `${pathD} L ${width - padX} ${height - padY} L ${padX} ${height - padY} Z`;
+  const gradId = `dash-grad-${title.replace(/\s+/g, "")}`;
+  const total = series.reduce((s, d) => s + d.value, 0);
   return (
-    <div className="rounded-2xl border border-[#e0e9e4] bg-white p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="group rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#6a7c73]">
-            {title}
-          </p>
-          <p className="text-[11px] text-[#1a3326]/55">{subtitle}</p>
+          <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#6a7c73]">{title}</p>
+          <p className="text-[11px] text-[#1a3326]/55 mt-0.5">{subtitle}</p>
         </div>
-        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#046241]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#046241] animate-pulse" />
-          Live
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[22px] font-black text-[#10261d]">{total}</span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#046241] bg-[#e6f7ef] px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#046241] animate-pulse" />
+            Live
+          </span>
+        </div>
       </div>
-      <div className="flex items-end gap-2 h-20">
-        {series.map((point, index) => {
-          const height = Math.max(6, (point.value / maxValue) * 64);
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[90px] overflow-visible">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line x1={padX} y1={padY} x2={width - padX} y2={padY} stroke="#f0f4f1" strokeWidth="1" />
+        <line x1={padX} y1={height / 2} x2={width - padX} y2={height / 2} stroke="#f0f4f1" strokeWidth="1" />
+        <line x1={padX} y1={height - padY} x2={width - padX} y2={height - padY} stroke="#e0e9e4" strokeWidth="1" />
+        <motion.path d={fillD} fill={`url(#${gradId})`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, ease: EASE }} />
+        <motion.path
+          d={pathD}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={reduceMotion ? { pathLength: 1 } : { pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.4, ease: EASE }}
+        />
+        {series.map((pt, i) => {
+          const x = padX + (i * (width - 2 * padX)) / Math.max(series.length - 1, 1);
+          const y = height - padY - (pt.value / maxValue) * (height - 2 * padY);
           return (
-            <div key={point.label} className="flex-1 flex flex-col items-center gap-1">
-              <motion.div
-                className="w-full rounded-lg"
-                initial={reduceMotion ? { height, opacity: 1 } : { height: 0, opacity: 0.6 }}
-                animate={{ height, opacity: 1 }}
-                transition={{ duration: 0.6, ease: EASE, delay: reduceMotion ? 0 : index * 0.06 }}
-                style={{ height, background: color }}
-              />
-              <span className="text-[9px] text-[#1a3326]/45">{point.label}</span>
-            </div>
-          )
+            <motion.circle
+              key={i}
+              cx={x}
+              cy={y}
+              r="3.5"
+              fill="#fff"
+              stroke={color}
+              strokeWidth="2"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.35, delay: i * 0.08, ease: "backOut" }}
+            >
+              <title>{pt.label}: {pt.value}</title>
+            </motion.circle>
+          );
         })}
+      </svg>
+      <div className="flex justify-between mt-1 px-0.5">
+        {series.map((pt, i) => (
+          <span key={i} className="text-[9px] font-semibold text-[#1a3326]/40">{pt.label}</span>
+        ))}
       </div>
     </div>
   );
 }
 
-function PremiumStatCard({ title, value, subtitle, trend, trendValue }: { title: string; value: number | string; subtitle?: string; trend?: "up" | "down" | "neutral", trendValue?: string }) {
+function PremiumStatCard({
+  title,
+  value,
+  subtitle,
+  trend,
+  trendValue,
+  icon,
+  iconBg,
+}: {
+  title: string;
+  value: number | string;
+  subtitle?: string;
+  trend?: "up" | "down" | "neutral";
+  trendValue?: string;
+  icon?: React.ReactNode;
+  iconBg?: string;
+}) {
   return (
     <div className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-sm hover:shadow-md transition-all flex flex-col relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#046241]/[0.02] to-transparent w-full rounded-bl-full pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-      <div className="flex justify-between items-start mb-2">
-        <p className="text-[12px] font-bold tracking-wide uppercase text-[#6a7c73]">{title}</p>
+      <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-gradient-to-br from-[#046241]/[0.04] to-transparent pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+      <div className="flex justify-between items-start mb-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: iconBg || "#e6f7ef" }}
+        >
+          {icon}
+        </div>
         {trend && (
-          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${trend === "up" ? "bg-[#e6f7ef] text-[#046241]" :
-            trend === "down" ? "bg-[#ffe9e9] text-[#9f2424]" : "bg-[#f0f4f1] text-[#6a7c73]"
-            }`}>
-            {trend === "up" ? "↗" : trend === "down" ? "↘" : "→"} {trendValue}
+          <span
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${
+              trend === "up"
+                ? "bg-[#e6f7ef] text-[#046241]"
+                : trend === "down"
+                ? "bg-[#ffe9e9] text-[#9f2424]"
+                : "bg-[#f0f4f1] text-[#6a7c73]"
+            }`}
+          >
+            {trend === "up" ? "▲" : trend === "down" ? "▼" : "●"} {trendValue}
           </span>
         )}
       </div>
-      <p className="mt-1 text-[40px] leading-none font-black text-[#12261d] tracking-tight">
+      <p className="text-[11px] font-bold tracking-wide uppercase text-[#6a7c73] mb-1">{title}</p>
+      <p className="text-[36px] leading-none font-black text-[#12261d] tracking-tight">
         {value}
       </p>
       {subtitle && (
-        <p className="mt-auto pt-4 text-[11px] font-semibold text-[#1a3326]/55">
+        <p className="mt-auto pt-3 text-[11px] font-semibold text-[#1a3326]/50 border-t border-[#f0f4f1]">
           {subtitle}
         </p>
       )}
@@ -594,7 +668,7 @@ export default function AdminDashboardPage() {
 
   return (
     <main
-      className="min-h-screen bg-brand-paper dark:bg-brand-dark overflow-x-hidden lg:h-screen lg:overflow-hidden text-[#12261d]"
+      className="min-h-screen bg-[#f5f8f6] overflow-x-hidden lg:h-screen lg:overflow-hidden text-[#12261d]"
       style={{ fontFamily: "Poppins, Sora, 'Segoe UI', sans-serif" }}
     >
       <section className="min-h-screen lg:h-screen grid grid-cols-1 lg:grid-cols-[238px_minmax(0,1fr)]">
@@ -602,30 +676,31 @@ export default function AdminDashboardPage() {
 
         <motion.section
           key="admin-dashboard-content"
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: EASE }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE }}
           className="relative bg-[#f5f8f6] p-5 pt-24 md:p-8 md:pt-28 lg:h-screen lg:overflow-y-auto lg:pt-8"
         >
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+          {/* ── Header ── */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-[36px] md:text-[44px] leading-[0.92] font-black tracking-[-0.03em] text-[#10261d]">
-                Welcome back
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#046241] mb-1">Admin Dashboard</p>
+              <h1 className="text-[32px] md:text-[40px] leading-[1] font-black tracking-[-0.03em] text-[#10261d]">
+                Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""} 👋
               </h1>
-              <p className="mt-2 text-[12px] text-[#1a3326]/62 font-medium">
-                {todayLabel}. Today's system overview.
+              <p className="mt-1.5 text-[12px] text-[#1a3326]/55 font-medium">
+                {todayLabel}{lastSyncAt ? ` · Last synced ${formatRelativeTime(lastSyncAt.toISOString())}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {/* Notifications */}
               <div className="relative" ref={notificationsRef}>
                 <motion.button
                   type="button"
                   onClick={() =>
                     setIsNotificationsOpen((prev) => {
                       const next = !prev;
-                      if (next) {
-                        setNotificationsSeenAt(new Date());
-                      }
+                      if (next) setNotificationsSeenAt(new Date());
                       return next;
                     })
                   }
@@ -639,15 +714,11 @@ export default function AdminDashboardPage() {
                       ? { duration: 1.2, repeat: Infinity, repeatDelay: 2.2 }
                       : { duration: 0.2 }
                   }
-                  className="h-9 w-9 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] flex items-center justify-center relative"
+                  className="h-10 w-10 rounded-full border border-[#d7e4dd] bg-white text-[#25473a] flex items-center justify-center relative shadow-sm hover:shadow-md transition-shadow"
                   aria-label="Notifications"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
                   </svg>
                   {notificationCount > 0 && (
                     <>
@@ -662,54 +733,36 @@ export default function AdminDashboardPage() {
                 <AnimatePresence>
                   {isNotificationsOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.97 }}
                       transition={{ duration: 0.18, ease: EASE }}
-                      className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_18px_50px_rgba(10,40,26,0.12)] overflow-hidden z-20"
+                      className="absolute right-0 mt-3 w-[320px] rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_18px_50px_rgba(10,40,26,0.14)] overflow-hidden z-20"
                     >
                       <div className="px-4 py-3 border-b border-[#ecf2ee] flex items-center justify-between">
-                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6a7c73]">
-                          Notifications
-                        </p>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6a7c73]">Notifications</p>
                         <span className="text-[10px] font-semibold text-[#1a3326]/60">
                           {notificationCount > 0 ? `${notificationCount} new` : "All caught up"}
                         </span>
                       </div>
-                      <div className="max-h-[280px] overflow-y-auto">
+                      <div className="max-h-[300px] overflow-y-auto divide-y divide-[#f0f4f1]">
                         {notificationItems.length === 0 ? (
-                          <div className="px-4 py-6 text-[12px] text-[#1a3326]/60">
-                            No new notifications right now.
-                          </div>
+                          <div className="px-4 py-6 text-[12px] text-[#1a3326]/60">No notifications right now.</div>
                         ) : (
                           notificationItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="px-4 py-3 border-b border-[#f0f4f1] last:border-b-0"
-                            >
+                            <div key={item.id} className="px-4 py-3 hover:bg-[#fafcfb] transition-colors">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-[12px] font-bold text-[#10261d]">
-                                  {item.title}
-                                </p>
-                                {item.unread && (
-                                  <span className="mt-0.5 inline-flex h-2 w-2 rounded-full bg-[#FFB347]" />
-                                )}
+                                <p className="text-[12px] font-bold text-[#10261d]">{item.title}</p>
+                                {item.unread && <span className="mt-0.5 inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-[#FFB347]" />}
                               </div>
-                              <p className="text-[11px] text-[#1a3326]/60 mt-1">
-                                {item.body}
-                              </p>
-                              <p className="text-[10px] text-[#1a3326]/45 mt-1">
-                                {item.meta}
-                              </p>
+                              <p className="text-[11px] text-[#1a3326]/60 mt-0.5">{item.body}</p>
+                              <p className="text-[10px] text-[#1a3326]/40 mt-0.5">{item.meta}</p>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setIsNotificationsOpen(false);
-                                  navigate(item.path);
-                                }}
-                                className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241]"
+                                onClick={() => { setIsNotificationsOpen(false); navigate(item.path); }}
+                                className="mt-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#046241] hover:underline"
                               >
-                                {item.action}
+                                {item.action} →
                               </button>
                             </div>
                           ))
@@ -719,14 +772,19 @@ export default function AdminDashboardPage() {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Refresh */}
               <button
                 type="button"
                 onClick={() => void fetchUsers()}
                 disabled={loadingUsers || isRefreshing}
-                className="h-10 w-10 flex items-center justify-center rounded-full border border-[#d7e4dd] bg-white text-[#25473a] hover:bg-[#f0f4f1] transition-colors disabled:opacity-50 group"
+                className="h-10 w-10 flex items-center justify-center rounded-full border border-[#d7e4dd] bg-white shadow-sm hover:shadow-md transition-shadow disabled:opacity-50 group"
                 title="Refresh Dashboard"
               >
-                <svg className={`w-4 h-4 text-[#046241] group-hover:scale-110 transition-transform ${loadingUsers || isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <svg
+                  className={`w-4 h-4 text-[#046241] group-hover:scale-110 transition-transform ${loadingUsers || isRefreshing ? "animate-spin" : ""}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
@@ -734,49 +792,82 @@ export default function AdminDashboardPage() {
           </div>
 
           {loadError && (
-            <div className="mb-4 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-3.5 py-2.5 text-[12px] font-semibold text-[#8a2626]">
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-[#ffb5b5] bg-[#fff0f0] px-4 py-3 text-[12px] font-semibold text-[#8a2626] shadow-sm">
+              <svg className="h-4 w-4 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
               {loadError}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6">
+          {/* ── KPI Stat Cards ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <PremiumStatCard
-              title="Total accounts"
+              title="Total Accounts"
               value={loadingUsers ? "—" : totalUsers}
               subtitle={`${newUsers7d} joined this week`}
               trend="up"
               trendValue="Active"
+              iconBg="#e6f7ef"
+              icon={
+                <svg className="w-5 h-5 text-[#046241]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              }
             />
             <PremiumStatCard
               title="Total Applicants"
               value={loadingUsers ? "—" : totalApplicants}
-              subtitle={`${newApplicants7d} this week`}
+              subtitle={`${newApplicants7d} new · ${acceptedApplicants} hired`}
               trend="up"
-              trendValue={`${acceptedApplicants} Hired`}
+              trendValue="Pipeline"
+              iconBg="#fff4e5"
+              icon={
+                <svg className="w-5 h-5 text-[#915700]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              }
             />
             <PremiumStatCard
-              title="Active today"
+              title="Active Today"
               value={loadingUsers ? "—" : activeToday}
+              subtitle="Users active in the last 24 h"
               trend="neutral"
               trendValue="Live"
+              iconBg="#eaf4ff"
+              icon={
+                <svg className="w-5 h-5 text-[#0051a8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              }
             />
             <PremiumStatCard
-              title="Pending setup"
+              title="Pending Setup"
               value={loadingUsers ? "—" : pendingUsers}
               subtitle="Users awaiting verification"
               trend={pendingUsers > 0 ? "down" : "neutral"}
-              trendValue={pendingUsers > 0 ? "Action needed" : "-"}
+              trendValue={pendingUsers > 0 ? "Action needed" : "Clear"}
+              iconBg={pendingUsers > 0 ? "#ffe9e9" : "#f0f4f1"}
+              icon={
+                <svg
+                  className={`w-5 h-5 ${pendingUsers > 0 ? "text-[#9f2424]" : "text-[#6a7c73]"}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <BarChart
+          {/* ── Charts ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <SvgLineChart
               title="New Applicants"
-              subtitle="Applications in the last 7 days"
+              subtitle="Applications submitted in the last 7 days"
               series={newApplicantsSeries}
-              color="#0f6b4d"
+              color="#046241"
             />
-            <BarChart
+            <SvgLineChart
               title="Processed Applicants"
               subtitle="Reviewed or interviewed recently"
               series={processedApplicantsSeries}
@@ -784,112 +875,151 @@ export default function AdminDashboardPage() {
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4">
-            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-              <div className="px-4 py-3.5 border-b border-[#ecf2ee] flex items-center justify-between">
-                <h2 className="text-[23px] font-black text-[#10261d]">New users</h2>
+          {/* ── Bottom Grid: Users List + Analytics Panel ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-4">
+
+            {/* New Users */}
+            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden shadow-sm">
+              <div className="px-5 py-4 border-b border-[#ecf2ee] flex items-center justify-between">
+                <div>
+                  <h2 className="text-[18px] font-black text-[#10261d]">New Users</h2>
+                  <p className="text-[11px] text-[#1a3326]/50 mt-0.5">{latestUsers.length} most recent registrations</p>
+                </div>
                 <button
                   type="button"
                   onClick={() => navigate("/admin/users")}
-                  className="text-[11px] font-black uppercase tracking-[0.1em] text-[#046241]"
+                  className="h-8 px-3 rounded-lg border border-[#046241]/20 text-[10px] font-black uppercase tracking-[0.1em] text-[#046241] hover:bg-[#046241]/5 transition-colors"
                 >
                   View all
                 </button>
               </div>
-              <div className="divide-y divide-[#ecf2ee]">
+              <div className="divide-y divide-[#f4f8f6]">
                 {loadingUsers ? (
-                  <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
-                    Loading users from database...
-                  </div>
+                  <div className="px-5 py-6 text-[13px] text-[#1a3326]/50">Loading users…</div>
                 ) : latestUsers.length === 0 ? (
-                  <div className="px-4 py-6 text-[13px] text-[#1a3326]/55">
-                    No users found.
-                  </div>
+                  <div className="px-5 py-6 text-[13px] text-[#1a3326]/50">No users found.</div>
                 ) : (
-                  latestUsers.map((entry) => (
-                    <div key={entry.id} className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full border border-[#d8e5de] bg-[#f4f8f6] overflow-hidden flex items-center justify-center text-[11px] font-black text-[#244235]">
-                        {entry.avatarUrl ? (
-                          <img src={entry.avatarUrl} alt={`${entry.name} avatar`} className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{initials(entry.name) || "U"}</span>
-                        )}
+                  latestUsers.map((entry) => {
+                    const rolePillClass =
+                      entry.role === "SUPER ADMIN"
+                        ? "bg-[#f4eaf9] text-[#712b91]"
+                        : entry.role === "ADMIN"
+                        ? "bg-[#eaf4ff] text-[#0051a8]"
+                        : "bg-[#f0f4f1] text-[#3a5549]";
+                    return (
+                      <div key={entry.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-[#fafcfb] transition-colors">
+                        <div className="w-10 h-10 rounded-full flex-shrink-0 border border-[#d8e5de] bg-[#e6f4ea] overflow-hidden flex items-center justify-center text-[12px] font-black text-[#046241]">
+                          {entry.avatarUrl ? (
+                            <img src={entry.avatarUrl} alt={entry.name} className="w-full h-full object-cover" />
+                          ) : (
+                            initials(entry.name) || "U"
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[13px] font-bold truncate text-[#0f2318]">{entry.name}</p>
+                            <span className={`inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] ${rolePillClass}`}>
+                              {entry.role}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-[#1a3326]/50 truncate">{entry.email}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[10px] font-black text-[#1a3326]/40 uppercase tracking-wide">{entry.displayId || "—"}</p>
+                          <p className="text-[11px] text-[#1a3326]/50">{formatDate(entry.createdAt)}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold truncate text-[#0f2318]">{entry.name}</p>
-                        <p className="text-[11px] text-[#1a3326]/55 truncate">{entry.email}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#1a3326]/50">
-                          {entry.displayId || "PH000"}
-                        </p>
-                        <p className="text-[11px] text-[#1a3326]/55">{formatDate(entry.createdAt)}</p>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden">
-              <div className="px-4 py-3.5 border-b border-[#ecf2ee]">
-                <h2 className="text-[19px] font-black text-[#10261d]">Realtime analytics</h2>
-                <p className="text-[11px] text-[#1a3326]/55">Today, {todayLabel}</p>
+            {/* Analytics Sidebar */}
+            <section className="rounded-2xl border border-[#e0e9e4] bg-white overflow-hidden shadow-sm flex flex-col">
+              <div className="px-5 py-4 border-b border-[#ecf2ee]">
+                <h2 className="text-[18px] font-black text-[#10261d]">System Snapshot</h2>
+                <p className="text-[11px] text-[#1a3326]/50 mt-0.5">{todayLabel}</p>
               </div>
-              <div className="p-4 space-y-4">
-                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Role mix</p>
-                  <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
-                    <div className="flex items-center justify-between">
-                      <span>Users</span>
-                      <span>{roleBreakdown.USER}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Admins</span>
-                      <span>{roleBreakdown.ADMIN}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Super admins</span>
-                      <span>{roleBreakdown["SUPER ADMIN"]}</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="p-4 space-y-4 flex-1">
 
-                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Status</p>
-                  <div className="mt-2 space-y-2 text-[12px] font-semibold text-[#10261d]">
-                    <div className="flex items-center justify-between">
-                      <span>Active</span>
-                      <span>{statusBreakdown.Active}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Pending</span>
-                      <span>{statusBreakdown.Pending}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Suspended</span>
-                      <span>{statusBreakdown.Suspended}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1a3326]/55">Recently active</p>
-                  <div className="mt-2 space-y-2">
-                    {recentlyActive.length === 0 ? (
-                      <p className="text-[12px] text-[#1a3326]/55">No recent activity.</p>
-                    ) : (
-                      recentlyActive.map((entry) => (
-                        <div key={entry.id} className="flex items-center justify-between text-[12px] text-[#10261d]">
-                          <span className="truncate">{entry.name}</span>
-                          <span className="text-[#1a3326]/55">{formatRelativeTime(entry.lastSeen)}</span>
+                {/* Role mix with progress bars */}
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1a3326]/55 mb-3">Role Distribution</p>
+                  {(["USER", "ADMIN", "SUPER ADMIN"] as const).map((role, i) => {
+                    const count = roleBreakdown[role];
+                    const pct = totalUsers > 0 ? Math.round((count / totalUsers) * 100) : 0;
+                    const colors = ["#046241", "#0051a8", "#712b91"];
+                    return (
+                      <div key={role} className="mb-2 last:mb-0">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-[11px] font-semibold text-[#1a3326]">{role === "SUPER ADMIN" ? "Super Admin" : role === "ADMIN" ? "Admin" : "User"}</span>
+                          <span className="text-[11px] font-black text-[#10261d]">{count}</span>
                         </div>
-                      ))
-                    )}
+                        <div className="h-1.5 w-full rounded-full bg-[#e8efeb] overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ background: colors[i] }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, delay: i * 0.1, ease: EASE }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Account status */}
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1a3326]/55 mb-3">Account Status</p>
+                  <div className="space-y-2">
+                    {([
+                      { label: "Active", key: "Active" as const, color: "#046241", bg: "#e6f7ef", text: "#046241" },
+                      { label: "Pending", key: "Pending" as const, color: "#FFB347", bg: "#fff4e5", text: "#915700" },
+                      { label: "Suspended", key: "Suspended" as const, color: "#e85c5c", bg: "#ffe9e9", text: "#9f2424" },
+                    ]).map(({ label, key, color, bg, text }) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                          <span className="text-[12px] font-semibold text-[#1a3326]">{label}</span>
+                        </div>
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-black"
+                          style={{ background: bg, color: text }}
+                        >
+                          {statusBreakdown[key]}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+
+                {/* Recently active */}
+                <div className="rounded-xl border border-[#e8efeb] bg-[#fbfdfc] p-3.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1a3326]/55 mb-3">Recently Active</p>
+                  {recentlyActive.length === 0 ? (
+                    <p className="text-[12px] text-[#1a3326]/50">No recent activity.</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {recentlyActive.map((entry) => (
+                        <div key={entry.id} className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-[#e6f4ea] border border-[#d8e5de] flex items-center justify-center text-[10px] font-black text-[#046241] flex-shrink-0">
+                            {initials(entry.name) || "U"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold text-[#10261d] truncate">{entry.name}</p>
+                          </div>
+                          <span className="text-[10px] text-[#1a3326]/45 flex-shrink-0">{formatRelativeTime(entry.lastSeen)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
               </div>
             </section>
+
           </div>
         </motion.section>
       </section>
