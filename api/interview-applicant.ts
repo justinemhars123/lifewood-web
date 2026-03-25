@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
   try {
     const { data, error } = await supabase
       .from("applicants")
-      .select("first_name, last_name, status, email")
+      .select("first_name, last_name, status, email, created_at, position")
       .eq("id", applicantId)
       .maybeSingle();
 
@@ -60,6 +60,8 @@ export default async function handler(req: any, res: any) {
     const applicantName = [firstName, lastName].filter(Boolean).join(" ").trim();
     const status = String(data?.status || "").trim();
     const email = String(data?.email || "").trim();
+    const createdAt = String(data?.created_at || "").trim();
+    const appliedPosition = String(data?.position || "").trim();
     const interviewLocked =
       status === "Interview Completed" ||
       status === "Accepted" ||
@@ -70,6 +72,8 @@ export default async function handler(req: any, res: any) {
       firstName,
       email,
       status,
+      createdAt,
+      appliedPosition,
       interviewLocked,
     });
   } catch (error: any) {
