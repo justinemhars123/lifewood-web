@@ -165,18 +165,18 @@ function buildLocalInterviewEvaluation(transcript: TranscriptEntry[]): Interview
   const words = combined.match(/\b[\w'-]+\b/g) || [];
   const total = words.length;
   const avg = answers.length ? total / answers.length : 0;
-  const fit = ["experience","skills","background","project","team","role","position","customer","data","operations","support"].filter(k => combined.toLowerCase().includes(k)).length;
-  const prob = ["problem","challenge","solve","solved","solution","resolved","improved","approach","result","outcome"].filter(k => combined.toLowerCase().includes(k)).length;
-  const prof = ["professional","responsible","collaborated","communicated","managed","delivered","organized","reliable"].filter(k => combined.toLowerCase().includes(k)).length;
-  const shorts = answers.filter(a => (a.match(/\b[\w'-]+\b/g)||[]).length < 8).length;
+  const fit = ["experience", "skills", "background", "project", "team", "role", "position", "customer", "data", "operations", "support"].filter(k => combined.toLowerCase().includes(k)).length;
+  const prob = ["problem", "challenge", "solve", "solved", "solution", "resolved", "improved", "approach", "result", "outcome"].filter(k => combined.toLowerCase().includes(k)).length;
+  const prof = ["professional", "responsible", "collaborated", "communicated", "managed", "delivered", "organized", "reliable"].filter(k => combined.toLowerCase().includes(k)).length;
+  const shorts = answers.filter(a => (a.match(/\b[\w'-]+\b/g) || []).length < 8).length;
   let score = 35 + Math.min(20, total * 0.22) + Math.min(15, avg * 0.4) + Math.min(12, fit * 3) + Math.min(10, prob * 2.5) + Math.min(8, prof * 2) - shorts * 6;
   if (answers.length < 3) score -= 12;
   const s = clampScore(score);
   const summary = s >= 90 ? "Excellent with strong role fit and professional communication."
     : s >= 75 ? "Strong performance with relevant answers and professional tone."
-    : s >= 60 ? "Acceptable but some answers could be more specific."
-    : s >= 40 ? "Below-average with limited relevance or depth."
-    : "Weak performance due to unclear or incomplete answers.";
+      : s >= 60 ? "Acceptable but some answers could be more specific."
+        : s >= 40 ? "Below-average with limited relevance or depth."
+          : "Weak performance due to unclear or incomplete answers.";
   return { score: s, summary };
 }
 
@@ -525,7 +525,7 @@ export default function AIInterviewPage() {
       body: (
         <>
           <p className="text-[#1a3326]/70 text-sm leading-relaxed mb-3">
-            Congratulations{applicantName ? `, <strong>${applicantName}</strong>` : ''}! You have successfully completed your AI screening interview with <strong>Lifewood</strong>.
+            Congratulations{applicantName ? <>, <strong className="text-[#0f2318]">{applicantName}</strong></> : ''}! You have successfully completed your AI screening interview with <strong className="text-[#0f2318]">Lifewood</strong>.
           </p>
           <p className="text-[#1a3326]/70 text-sm leading-relaxed mb-3">
             Your responses have been recorded and will be carefully reviewed by our recruitment team. If you're selected for the next stage, you'll be contacted via the email you registered with.
@@ -714,13 +714,12 @@ export default function AIInterviewPage() {
           )}
           {/* Timer */}
           {interviewStarted && (
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-black tabular-nums border transition-all ${
-              timerUrgent
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-black tabular-nums border transition-all ${timerUrgent
                 ? 'bg-[#fff0f0] border-red-200 text-red-500'
                 : timerWarning
-                ? 'bg-[#fff4e5] border-amber-200 text-amber-600'
-                : 'bg-[#e6f7ef] border-[#c3eed7] text-[#046241]'
-            }`}>
+                  ? 'bg-[#fff4e5] border-amber-200 text-amber-600'
+                  : 'bg-[#e6f7ef] border-[#c3eed7] text-[#046241]'
+              }`}>
               <svg className={`w-3.5 h-3.5 ${timerUrgent ? 'animate-pulse' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -738,11 +737,10 @@ export default function AIInterviewPage() {
             const active = userAnswerCount === i;
             return (
               <div key={label} className="flex items-center gap-2">
-                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                  done ? 'bg-[#e6f7ef] text-[#046241] border-[#c3eed7]'
-                  : active ? 'bg-[#046241] text-white border-[#046241]'
-                  : 'bg-[#f5f8f6] text-[#1a3326]/50 border-[#e0e9e4]'
-                }`}>
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${done ? 'bg-[#e6f7ef] text-[#046241] border-[#c3eed7]'
+                    : active ? 'bg-[#046241] text-white border-[#046241]'
+                      : 'bg-[#f5f8f6] text-[#1a3326]/50 border-[#e0e9e4]'
+                  }`}>
                   {done
                     ? <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     : <span className="w-3 h-3 flex items-center justify-center text-[9px] font-black">{i + 1}</span>
@@ -789,11 +787,10 @@ export default function AIInterviewPage() {
                 </div>
               )}
 
-              <div className={`max-w-[78%] md:max-w-[65%] px-4 py-3 text-[14px] leading-relaxed shadow-sm ${
-                msg.role === 'user'
+              <div className={`max-w-[78%] md:max-w-[65%] px-4 py-3 text-[14px] leading-relaxed shadow-sm ${msg.role === 'user'
                   ? 'bg-[#046241] text-white rounded-2xl rounded-br-sm'
                   : 'bg-white border border-[#e0e9e4] text-[#0f2318] rounded-2xl rounded-bl-sm'
-              }`}>
+                }`}>
                 {msg.role === 'assistant'
                   ? <AiMessageContent text={msg.content} />
                   : msg.content
@@ -840,8 +837,8 @@ export default function AIInterviewPage() {
               disabled={isTyping || interviewComplete || !interviewStarted}
               placeholder={
                 !interviewStarted ? 'Please read the instructions first…'
-                : interviewComplete ? 'Session ended'
-                : 'Type your response here…'
+                  : interviewComplete ? 'Session ended'
+                    : 'Type your response here…'
               }
               className="flex-1 h-12 rounded-xl border border-[#d8e5de] bg-[#f5f8f6] px-4 text-[#0f2318] placeholder:text-[#1a3326]/40 outline-none focus:border-[#046241] focus:bg-white focus:ring-2 focus:ring-[#046241]/15 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             />
