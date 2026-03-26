@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import emailjs from '@emailjs/browser';
+import { getEmailJsConfig, getEmailJsConfigError } from "../emailjsConfig";
 import {
   AUTH_EVENT_NAME,
   AuthUser,
@@ -13,10 +14,6 @@ import AdminNavigation from "./AdminNavigation";
 import { supabase } from "../supabaseClient";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
-const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_cpyba2r";
-const EMAILJS_SCREENING_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_SCREENING_TEMPLATE_ID || "template_qbegp0m";
-const EMAILJS_DECISION_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_DECISION_TEMPLATE_ID || "";
-const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "bbHE7xH3WprnKw8i8";
 
 type Applicant = {
   id: string;
@@ -685,6 +682,14 @@ export default function AdminApplicantsPage() {
 
     try {
       const nextStatus = acceptEmailModal.status === "Interview Completed" ? "Accepted" : "Pending Interview";
+      const isScreeningEmail = nextStatus === "Pending Interview";
+      const configError = getEmailJsConfigError(
+        isScreeningEmail
+          ? { requireScreeningTemplate: true }
+          : { requireDecisionOrScreeningTemplate: true }
+      );
+      if (configError) throw new Error(configError);
+      const emailConfig = getEmailJsConfig();
 
       const { error } = await supabase
         .from("applicants")
@@ -693,10 +698,9 @@ export default function AdminApplicantsPage() {
 
       if (error) throw error;
 
-      const isScreeningEmail = nextStatus === "Pending Interview";
       const templateId = isScreeningEmail
-        ? EMAILJS_SCREENING_TEMPLATE_ID
-        : (EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID);
+        ? emailConfig.screeningTemplateId
+        : (emailConfig.decisionTemplateId || emailConfig.screeningTemplateId);
 
       const templateParams = buildEmailTemplateParams({
         applicant: acceptEmailModal,
@@ -706,10 +710,10 @@ export default function AdminApplicantsPage() {
       });
 
       await emailjs.send(
-        EMAILJS_SERVICE_ID,
+        emailConfig.serviceId,
         templateId,
         templateParams,
-        EMAILJS_PUBLIC_KEY
+        emailConfig.publicKey
       );
 
       setApplicants((prev) =>
@@ -735,6 +739,12 @@ export default function AdminApplicantsPage() {
     setIsSending(true);
 
     try {
+      const configError = getEmailJsConfigError({
+        requireDecisionOrScreeningTemplate: true,
+      });
+      if (configError) throw new Error(configError);
+      const emailConfig = getEmailJsConfig();
+
       // 1. Update the status to 'Rejected' in DB
       const { error } = await supabase
         .from("applicants")
@@ -753,10 +763,10 @@ export default function AdminApplicantsPage() {
       });
 
       await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID,
+        emailConfig.serviceId,
+        emailConfig.decisionTemplateId || emailConfig.screeningTemplateId,
         templateParams,
-        EMAILJS_PUBLIC_KEY
+        emailConfig.publicKey
       );
 
       setApplicants((prev) =>
@@ -782,6 +792,12 @@ export default function AdminApplicantsPage() {
     setIsSending(true);
 
     try {
+      const configError = getEmailJsConfigError({
+        requireDecisionOrScreeningTemplate: true,
+      });
+      if (configError) throw new Error(configError);
+      const emailConfig = getEmailJsConfig();
+
       const { error } = await supabase
         .from("applicants")
         .update({ status: "HR Interview" })
@@ -797,10 +813,10 @@ export default function AdminApplicantsPage() {
       });
 
       await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_DECISION_TEMPLATE_ID || EMAILJS_SCREENING_TEMPLATE_ID,
+        emailConfig.serviceId,
+        emailConfig.decisionTemplateId || emailConfig.screeningTemplateId,
         templateParams,
-        EMAILJS_PUBLIC_KEY
+        emailConfig.publicKey
       );
 
       setApplicants((prev) =>

@@ -41,16 +41,11 @@ export default async function handler(req: any, res: any) {
     ""
   ).trim();
 
-  const supabaseKey = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    ""
-  ).trim();
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
   if (!supabaseUrl || !supabaseKey) {
     return res.status(500).json({
-      message: "The server is missing Supabase environment variables for interview completion.",
+      message: "The server is missing SUPABASE_SERVICE_ROLE_KEY for interview completion.",
     });
   }
 

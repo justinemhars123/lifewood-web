@@ -9,12 +9,9 @@ import {
   logoutAuth,
 } from "../auth";
 import AdminNavigation from "./AdminNavigation";
+import { getEmailJsConfig, getEmailJsConfigError } from "../emailjsConfig";
 import { supabase } from "../supabaseClient";
 import emailjs from '@emailjs/browser';
-
-const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_cpyba2r";
-const EMAILJS_DECISION_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_DECISION_TEMPLATE_ID || "template_qbegp0m";
-const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "bbHE7xH3WprnKw8i8";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -219,6 +216,10 @@ export default function AdminContactsPage() {
     setIsSending(true);
 
     try {
+      const configError = getEmailJsConfigError({ requireDecisionTemplate: true });
+      if (configError) throw new Error(configError);
+      const emailConfig = getEmailJsConfig();
+
       const templateParams = {
         to_name: replyEmailModal.name,
         to_email: replyEmailModal.email,
@@ -227,10 +228,10 @@ export default function AdminContactsPage() {
       };
 
       await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_DECISION_TEMPLATE_ID,
+        emailConfig.serviceId,
+        emailConfig.decisionTemplateId,
         templateParams,
-        EMAILJS_PUBLIC_KEY
+        emailConfig.publicKey
       );
 
       if (replyEmailModal.status !== "Replied") {
