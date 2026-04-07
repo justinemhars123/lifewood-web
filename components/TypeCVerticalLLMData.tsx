@@ -3,12 +3,9 @@ import {
   motion,
   useMotionValue,
   useSpring,
-  useTransform,
   AnimatePresence,
   useInView,
-  animate,
 } from "framer-motion";
-import type { MotionValue } from "framer-motion";
 
 // ─── Data ──────────────────────────────────────────────────────────────────
 const BLOCKS = [
@@ -18,7 +15,7 @@ const BLOCKS = [
     title: "Target",
     tag: "Collection",
     body: "Annotate vehicles, pedestrians, and road objects with 2D & 3D techniques to enable accurate object detection for autonomous driving. Self-driving cars rely on precise visual training to detect, classify, and respond safely in real-world conditions.",
-    features: ["23 Countries", "6 Project Types", "9 Data Domains", "25,400 Valid Hours"],
+    features: ["2D & 3D Annotation", "Object Detection", "Road Scene Parsing", "Autonomous Driving"],
   },
   {
     num: "02",
@@ -26,7 +23,7 @@ const BLOCKS = [
     title: "Solutions",
     tag: "Technology",
     body: "Dedicated Process Engineering team for analysis and optimization. AI-enhanced workflow with multi-level quality checks. Scalable global delivery through crowdsourced workforce management.",
-    features: ["30,000+ Native Speakers", "30+ Countries", "PBI Real-Time Tracking", "Continuous Optimization"],
+    features: ["Process Engineering", "AI-Enhanced QC", "Multi-Level Checks", "Global Delivery"],
   },
   {
     num: "03",
@@ -34,7 +31,7 @@ const BLOCKS = [
     title: "Results",
     tag: "Outcomes",
     body: "Achieved 25% production in Month 1 with 95% accuracy (Target: 90%) and 50% production in Month 2 with 99% accuracy (Target: 95%). Maintained an overall accuracy of 99% with on-time delivery. Successfully expanded operations to Malaysia with 100 annotators and Indonesia with 150 annotators.",
-    features: ["25,400 Valid Hours", "5-Month Delivery", "On-Time & Quality", "LLM-Ready Output"],
+    features: ["99% Accuracy", "On-Time Delivery", "250+ Annotators", "LLM-Ready Output"],
   },
 ];
 
@@ -43,6 +40,436 @@ const SLIDE_IMAGES = [
   "https://framerusercontent.com/images/9KyWAYBvYkUbASCckXa16Fgc.jpg?scale-down-to=1024&width=4032&height=3024",
   "https://framerusercontent.com/images/mqqWNbBnY0EOUvSMgGlDain8M.jpg?width=1004&height=591",
 ];
+
+// ─── Pipeline steps (TypeC — autonomous driving / vertical LLM) ───────────
+const PIPELINE_STEPS = [
+  {
+    label: "Scene & object targeting",
+    sub: "Vehicles · Pedestrians · Road objects",
+    accent: true,
+    icon: (active: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="6.5" fill="none"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.2" />
+        <circle cx="9" cy="9" r="2.5" fill="none"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.2" />
+        <line x1="9" y1="2.5" x2="9" y2="5"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="9" y1="13" x2="9" y2="15.5"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="2.5" y1="9" x2="5" y2="9"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="13" y1="9" x2="15.5" y2="9"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.1" strokeLinecap="round" />
+        <circle cx="9" cy="9" r="1"
+          fill={active ? "white" : "#046241"} />
+      </svg>
+    ),
+  },
+  {
+    label: "2D & 3D annotation",
+    sub: "Bounding box · Segmentation · LiDAR",
+    accent: false,
+    icon: (_: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <rect x="2" y="5" width="10" height="8" rx="1.5" fill="none"
+          stroke="#046241" strokeWidth="1.2" />
+        <path d="M12 5l4-3v8l-4-3"
+          fill="none" stroke="#046241" strokeWidth="1.1"
+          strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+        <line x1="2" y1="9" x2="12" y2="9"
+          stroke="#046241" strokeWidth="0.8" strokeDasharray="1.5 1.5" opacity="0.4" />
+        <line x1="7" y1="5" x2="7" y2="13"
+          stroke="#046241" strokeWidth="0.8" strokeDasharray="1.5 1.5" opacity="0.4" />
+        <circle cx="4.5" cy="7" r="1" fill="#046241" opacity="0.7" />
+        <circle cx="9.5" cy="11" r="1" fill="#046241" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
+    label: "AI-enhanced QC workflow",
+    sub: "Multi-level checks · Process engineering",
+    accent: false,
+    icon: (_: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <path d="M9 2l1.5 4.5H15l-3.7 2.7 1.4 4.3L9 11l-3.7 2.5 1.4-4.3L3 6.5h4.5L9 2z"
+          fill="none" stroke="#046241" strokeWidth="1.2"
+          strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="9" cy="9" r="2" fill="none"
+          stroke="#046241" strokeWidth="1" opacity="0.5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Global annotator scale-up",
+    sub: "Malaysia 100 · Indonesia 150 annotators",
+    accent: false,
+    icon: (_: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <circle cx="9" cy="9" r="6.5" fill="none"
+          stroke="#046241" strokeWidth="1.2" />
+        <path d="M9 2.5C9 2.5 6 6 6 9s3 6.5 3 6.5M9 2.5C9 2.5 12 6 12 9s-3 6.5-3 6.5"
+          stroke="#046241" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.6" />
+        <line x1="2.5" y1="9" x2="15.5" y2="9"
+          stroke="#046241" strokeWidth="1" opacity="0.4" />
+        <line x1="3.5" y1="6" x2="14.5" y2="6"
+          stroke="#046241" strokeWidth="0.8" opacity="0.3" />
+        <line x1="3.5" y1="12" x2="14.5" y2="12"
+          stroke="#046241" strokeWidth="0.8" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    label: "99% accuracy · on-time delivery",
+    sub: null,
+    accent: true,
+    icon: (active: boolean) => (
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <path d="M3.5 9.5L7 13l7.5-8"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="9" cy="9" r="7" fill="none"
+          stroke={active ? "white" : "#046241"} strokeWidth="1.1" opacity="0.4" />
+        <path d="M6 4.5C7 3.6 8 3 9 3c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6c0-1.2.35-2.32.96-3.26"
+          stroke={active ? "white" : "#046241"} strokeWidth="1"
+          strokeLinecap="round" opacity="0.55" />
+      </svg>
+    ),
+  },
+];
+
+const STATS = [
+  { value: "99%", label: "Accuracy" },
+  { value: "250+", label: "Annotators" },
+  { value: "2mo", label: "Ramp-up" },
+];
+
+// ─── Pipeline loop hook ───────────────────────────────────────────────────
+const STEP_DURATION = 900;
+const PAUSE_LAST = 1400;
+const RESET_PAUSE = 450;
+
+function usePipelineLoop(totalSteps: number) {
+  const [activeStep, setActiveStep] = useState<number>(0);
+  const [litConnectors, setLitConnectors] = useState<number[]>([]);
+  const [statsLit, setStatsLit] = useState(false);
+  const [connectorKey, setConnectorKey] = useState(0);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
+  const push = useCallback((fn: () => void, delay: number) => {
+    timersRef.current.push(setTimeout(fn, delay));
+  }, []);
+
+  const runStep = useCallback(
+    (stepIdx: number) => {
+      clearTimers();
+      setActiveStep(stepIdx);
+      setStatsLit(false);
+      setLitConnectors(Array.from({ length: stepIdx }, (_, i) => i));
+      if (stepIdx > 0) setConnectorKey((k) => k + 1);
+      if (stepIdx === totalSteps - 1) push(() => setStatsLit(true), 300);
+
+      const delay = stepIdx === totalSteps - 1 ? STEP_DURATION + PAUSE_LAST : STEP_DURATION;
+      push(() => {
+        const next = (stepIdx + 1) % totalSteps;
+        if (next === 0) {
+          setActiveStep(-1);
+          setLitConnectors([]);
+          setStatsLit(false);
+          push(() => runStep(0), RESET_PAUSE);
+        } else {
+          runStep(next);
+        }
+      }, delay);
+    },
+    [clearTimers, push, totalSteps]
+  );
+
+  useEffect(() => {
+    const t = setTimeout(() => runStep(0), 600);
+    return () => { clearTimeout(t); clearTimers(); };
+  }, [runStep, clearTimers]);
+
+  return { activeStep, litConnectors, statsLit, connectorKey };
+}
+
+// ─── Animated pipeline connector ─────────────────────────────────────────
+function PipelineConnector({
+  delay,
+  lit,
+  animKey,
+}: {
+  delay: number;
+  lit: boolean;
+  animKey: number;
+}) {
+  return (
+    <div className="relative flex justify-center" style={{ height: 18 }}>
+      <motion.div
+        className="absolute top-0 bottom-0"
+        style={{ width: 1, originY: 0 }}
+        initial={{ scaleY: 0 }}
+        animate={{ scaleY: 1 }}
+        transition={{ delay, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <motion.div
+          className="w-full h-full"
+          animate={{ backgroundColor: lit ? "rgba(4,98,65,0.7)" : "rgba(4,98,65,0.22)" }}
+          transition={{ duration: 0.3 }}
+        />
+      </motion.div>
+
+      {lit && (
+        <motion.div
+          key={animKey}
+          className="absolute rounded-full bg-[#046241] dark:bg-[#FFB347]"
+          style={{
+            width: 5, height: 5,
+            left: "calc(50% - 2.5px)",
+            boxShadow: "0 0 5px 2px rgba(4,98,65,0.5)",
+          }}
+          initial={{ top: -4, opacity: 0 }}
+          animate={{ top: 20, opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 0.4, ease: "easeInOut", times: [0, 0.1, 0.85, 1] }}
+        />
+      )}
+      {!lit && (
+        <motion.div
+          className="absolute w-[5px] h-[5px] rounded-full bg-[#046241] dark:bg-[#FFB347]"
+          style={{ left: "calc(50% - 2.5px)" }}
+          animate={{ top: ["-4px", "20px"], opacity: [0, 1, 1, 0] }}
+          transition={{
+            duration: 1.0, delay: delay + 0.5,
+            repeat: Infinity, repeatDelay: 2.4,
+            ease: "easeInOut", times: [0, 0.08, 0.92, 1],
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Dot-grid background ──────────────────────────────────────────────────
+function DotGrid() {
+  return (
+    <motion.div
+      aria-hidden
+      className="absolute inset-0 pointer-events-none overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1.2, delay: 0.35 }}
+    >
+      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="dotgrid-c" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="rgba(4,98,65,0.13)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dotgrid-c)" />
+      </svg>
+      <motion.div
+        className="absolute inset-y-0 w-20 pointer-events-none"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(4,98,65,0.07), transparent)" }}
+        animate={{ x: ["-120px", "140%"] }}
+        transition={{ duration: 5, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+      />
+    </motion.div>
+  );
+}
+
+// ─── Pipeline diagram ─────────────────────────────────────────────────────
+function PipelineDiagram() {
+  const { activeStep, litConnectors, statsLit, connectorKey } =
+    usePipelineLoop(PIPELINE_STEPS.length);
+
+  const progressPct =
+    activeStep < 0 ? 0 : ((activeStep + 1) / PIPELINE_STEPS.length) * 100;
+
+  return (
+    <div className="flex flex-col flex-1">
+      {/* Progress bar */}
+      <div
+        className="relative h-0.5 rounded-full mb-3 overflow-hidden"
+        style={{ background: "rgba(4,98,65,0.15)" }}
+      >
+        <motion.div
+          className="absolute left-0 top-0 h-full rounded-full bg-[#046241] dark:bg-[#FFB347]"
+          animate={{ width: `${progressPct}%` }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          style={{ boxShadow: "0 0 6px rgba(4,98,65,0.5)" }}
+        />
+      </div>
+
+      {PIPELINE_STEPS.map((step, i) => {
+        const isActive = activeStep === i;
+        const isPast = activeStep > i;
+        const isLit = isActive || isPast;
+
+        return (
+          <React.Fragment key={i}>
+            <motion.div
+              initial={{ opacity: 0, x: 20, filter: "blur(6px)" }}
+              animate={{
+                opacity: 1,
+                x: isActive ? 4 : 0,
+                filter: "blur(0px)",
+                scale: isActive ? 1.012 : 1,
+              }}
+              transition={{
+                opacity: { delay: 0.1 + i * 0.11, duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+                x: { type: "spring", stiffness: 300, damping: 28 },
+                scale: { type: "spring", stiffness: 300, damping: 28 },
+                filter: { delay: 0.1 + i * 0.11, duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+              }}
+              className={[
+                "rounded-xl px-3 py-2 flex flex-col select-none cursor-default relative overflow-hidden",
+                "transition-[border-color,background-color,box-shadow] duration-300",
+                step.accent
+                  ? isActive
+                    ? "bg-[#046241] border border-white/20 shadow-[0_0_0_3px_rgba(4,98,65,0.25),0_4px_20px_rgba(4,98,65,0.4)]"
+                    : "bg-[#046241]"
+                  : isLit
+                    ? "bg-[#edfbf4] dark:bg-[#0d2e1f] border border-[#046241] dark:border-[#FFB347]/50 shadow-[0_0_0_3px_rgba(4,98,65,0.1),0_4px_16px_rgba(4,98,65,0.15)]"
+                    : "bg-white dark:bg-white/5 border border-[#dce6e0] dark:border-white/10",
+              ].join(" ")}
+            >
+              {/* Shimmer sweep */}
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div
+                    key={`shimmer-${i}-${activeStep}`}
+                    className="absolute inset-y-0 pointer-events-none"
+                    style={{
+                      width: "55%",
+                      background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent)",
+                    }}
+                    initial={{ left: "-60%" }}
+                    animate={{ left: "140%" }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.55, ease: "easeOut" }}
+                  />
+                )}
+              </AnimatePresence>
+
+              <div className="flex items-center gap-2">
+                {/* Step number */}
+                <span className={[
+                  "text-[10px] font-black tabular-nums shrink-0 transition-colors duration-300",
+                  step.accent
+                    ? "text-white/45"
+                    : isLit
+                      ? "text-[#046241] dark:text-[#FFB347]"
+                      : "text-[#046241]/50 dark:text-[#FFB347]/50",
+                ].join(" ")}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+
+                {/* Icon */}
+                <motion.div
+                  className={[
+                    "flex items-center justify-center rounded-md transition-all duration-300",
+                    step.accent
+                      ? isActive ? "bg-white/25" : "bg-white/15"
+                      : isLit
+                        ? "bg-[#046241]/12 dark:bg-[#FFB347]/10"
+                        : "bg-[#e8f5ef] dark:bg-white/5",
+                  ].join(" ")}
+                  style={{ width: 26, height: 26 }}
+                  animate={{ scale: isActive ? 1.1 : 1 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 22 }}
+                >
+                  {step.icon(step.accent || isLit)}
+                </motion.div>
+
+                {/* Label */}
+                <span className={[
+                  "text-[11px] font-bold leading-tight transition-colors duration-300",
+                  step.accent
+                    ? "text-white"
+                    : isLit
+                      ? "text-[#046241] dark:text-[#FFB347]"
+                      : "text-[#0f2318] dark:text-white",
+                ].join(" ")}>
+                  {step.label}
+                </span>
+
+                {/* Live pulse on last step */}
+                {i === PIPELINE_STEPS.length - 1 && (
+                  <motion.span
+                    className={[
+                      "ml-auto w-2 h-2 rounded-full shrink-0 transition-colors duration-300",
+                      isActive ? "bg-white shadow-[0_0_6px_3px_rgba(255,255,255,0.4)]" : "bg-white/55",
+                    ].join(" ")}
+                    animate={{ scale: [1, 1.7, 1], opacity: [0.55, 1, 0.55] }}
+                    transition={{ duration: 1.7, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                )}
+              </div>
+
+              {step.sub && (
+                <span className={[
+                  "text-[10px] leading-tight mt-0.5 ml-[22px] transition-colors duration-300",
+                  step.accent
+                    ? "text-white/50"
+                    : isLit
+                      ? "text-[#046241]/70 dark:text-[#FFB347]/60"
+                      : "text-[#1a3326]/45 dark:text-white/35",
+                ].join(" ")}>
+                  {step.sub}
+                </span>
+              )}
+            </motion.div>
+
+            {i < PIPELINE_STEPS.length - 1 && (
+              <PipelineConnector
+                delay={0.12 + i * 0.1}
+                lit={litConnectors.includes(i)}
+                animKey={litConnectors.includes(i) ? connectorKey : 0}
+              />
+            )}
+          </React.Fragment>
+        );
+      })}
+
+      {/* Stat pills */}
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        {STATS.map((s, i) => (
+          <motion.div
+            key={s.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{
+              opacity: 1, y: 0,
+              ...(statsLit
+                ? { borderColor: "rgba(4,98,65,0.6)", backgroundColor: "#edfbf4", boxShadow: "0 0 0 3px rgba(4,98,65,0.1)" }
+                : { borderColor: "rgba(220,230,224,1)", backgroundColor: "white", boxShadow: "none" }
+              ),
+            }}
+            transition={{
+              opacity: { delay: 0.72 + i * 0.08, duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+              y: { delay: 0.72 + i * 0.08, duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+              borderColor: { delay: i * 0.08, duration: 0.35 },
+              backgroundColor: { delay: i * 0.08, duration: 0.35 },
+              boxShadow: { delay: i * 0.08, duration: 0.35 },
+            }}
+            className="border rounded-xl py-2 text-center dark:bg-white/5 dark:border-white/10"
+          >
+            <div className="text-[13px] font-black text-[#046241] dark:text-[#FFB347] leading-tight tabular-nums">
+              {s.value}
+            </div>
+            <div className="text-[9px] text-[#1a3326]/40 dark:text-white/35 mt-0.5">
+              {s.label}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Word-reveal heading ──────────────────────────────────────────────────
 function SplitReveal({ text, className, delay = 0 }: { text: string; className?: string; delay?: number }) {
@@ -90,172 +517,6 @@ function MagneticLink({ href, children, className }: { href: string; children: R
   );
 }
 
-// ─── Cursor-parallax hero shapes ─────────────────────────────────────────
-function HeroShapes() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const mouseX = useMotionValue(0.5);
-  const mouseY = useMotionValue(0.5);
-  const smX = useSpring(mouseX, { stiffness: 60, damping: 18, mass: 1 });
-  const smY = useSpring(mouseY, { stiffness: 60, damping: 18, mass: 1 });
-
-  const onMove = useCallback((e: MouseEvent) => {
-    const r = heroRef.current?.getBoundingClientRect();
-    if (!r) return;
-    mouseX.set((e.clientX - r.left) / r.width);
-    mouseY.set((e.clientY - r.top) / r.height);
-  }, [mouseX, mouseY]);
-
-  useEffect(() => {
-    const el = heroRef.current?.closest("section") ?? window;
-    el.addEventListener("mousemove", onMove as EventListenerOrEventListenerObject);
-    return () => el.removeEventListener("mousemove", onMove as EventListenerOrEventListenerObject);
-  }, [onMove]);
-
-  const px1 = useTransform(smX, [0, 1], [-14, 14]);
-  const py1 = useTransform(smY, [0, 1], [-10, 10]);
-  const px2 = useTransform(smX, [0, 1], [10, -10]);
-  const py2 = useTransform(smY, [0, 1], [8, -8]);
-  const px3 = useTransform(smX, [0, 1], [-8, 8]);
-  const py3 = useTransform(smY, [0, 1], [-6, 6]);
-
-  return (
-    <div ref={heroRef} className="relative overflow-hidden min-h-[320px]" style={{ zIndex: 2 }}>
-      <motion.div aria-hidden className="absolute inset-0 pointer-events-none"
-        animate={{
-          background: [
-            "radial-gradient(ellipse at 30% 50%, rgba(4,98,65,0.09) 0%, transparent 60%), radial-gradient(ellipse at 75% 25%, rgba(4,98,65,0.05) 0%, transparent 55%)",
-            "radial-gradient(ellipse at 55% 35%, rgba(4,98,65,0.07) 0%, transparent 60%), radial-gradient(ellipse at 25% 70%, rgba(4,98,65,0.07) 0%, transparent 55%)",
-            "radial-gradient(ellipse at 30% 50%, rgba(4,98,65,0.09) 0%, transparent 60%), radial-gradient(ellipse at 75% 25%, rgba(4,98,65,0.05) 0%, transparent 55%)",
-          ],
-        }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <Shape
-        src="https://framerusercontent.com/images/LFAxsa4CpX7e4qBI72ijOV2sHg.png?scale-down-to=512"
-        style={{ position: "absolute", top: 16, left: 44, width: 155, height: 155, zIndex: 3 }}
-        floatOffset={{ y: [-11, 0, -11], r: [0, 2.5, 0] }}
-        extraX={px1} extraY={py1}
-        shadow="drop-shadow(0 18px 40px rgba(0,0,0,0.32))"
-      />
-      <Shape
-        src="https://framerusercontent.com/images/Tq3lgO9Qy66CFuDaYW99KQ5xoLM.png?scale-down-to=512"
-        style={{ position: "absolute", top: 8, right: 50, width: 160, height: 160, zIndex: 3 }}
-        floatOffset={{ y: [-8, 0, -8], r: [0, -2, 0] }}
-        extraX={px2} extraY={py2}
-        shadow="drop-shadow(0 20px 44px rgba(0,0,0,0.34))"
-      />
-      <Shape
-        src="https://framerusercontent.com/images/Es0UNVEZFUO6pTmc3NI38eovew.png?scale-down-to=512"
-        style={{ position: "absolute", left: "calc(35% - 95px)", bottom: 30, width: 190, height: 190, zIndex: 4 }}
-        floatOffset={{ y: [-8, 0, -8], r: [0, -2, 0] }}
-        extraX={px3} extraY={py3}
-        shadow="drop-shadow(0 28px 64px rgba(0,0,0,0.40))"
-      />
-    </div>
-  );
-}
-
-// ─── Draggable shape with fixed snap-back ────────────────────────────────
-function Shape({ src, style, floatOffset, extraX, extraY, shadow }: {
-  src: string;
-  style: React.CSSProperties;
-  floatOffset: { y: number[]; r: number[] };
-  extraX: MotionValue<number>;
-  extraY: MotionValue<number>;
-  shadow: string;
-}) {
-  const dragX = useMotionValue(0);
-  const dragY = useMotionValue(0);
-  const springDX = useSpring(dragX, { stiffness: 200, damping: 20, mass: 1.1 });
-  const springDY = useSpring(dragY, { stiffness: 200, damping: 20, mass: 1.1 });
-  const combinedX = useTransform(() => extraX.get() + springDX.get());
-  const combinedY = useTransform(() => extraY.get() + springDY.get());
-  const [dragging, setDragging] = useState(false);
-
-  return (
-    <motion.div
-      style={{ ...style, x: combinedX, y: combinedY, cursor: dragging ? "grabbing" : "grab" }}
-      drag dragMomentum={false} dragElastic={0.18}
-      onDragStart={() => setDragging(true)}
-      onDragEnd={() => {
-        setDragging(false);
-        animate(dragX, 0, { type: "spring", stiffness: 180, damping: 18 });
-        animate(dragY, 0, { type: "spring", stiffness: 180, damping: 18 });
-      }}
-      onDrag={(_e, info) => { dragX.set(info.offset.x); dragY.set(info.offset.y); }}
-      animate={dragging ? { scale: 1.14, rotate: 6 } : { scale: 1, rotate: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 22 }}
-    >
-      <motion.img
-        src={src} alt="" draggable={false}
-        animate={{ y: floatOffset.y, rotate: floatOffset.r }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none", filter: shadow }}
-      />
-      <motion.div
-        animate={{ opacity: dragging ? 0.5 : 0.22, scaleX: dragging ? 1.2 : 1 }}
-        transition={{ duration: 0.3 }}
-        style={{
-          position: "absolute", bottom: -14, left: "50%", transform: "translateX(-50%)",
-          width: "55%", height: 10, borderRadius: "50%",
-          background: "radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 80%)",
-          filter: "blur(5px)", pointerEvents: "none",
-        }}
-      />
-    </motion.div>
-  );
-}
-
-// ─── Corner bracket ───────────────────────────────────────────────────────
-function CornerBracket({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
-  const top = pos.startsWith("t");
-  const left = pos.endsWith("l");
-  return (
-    <motion.div aria-hidden
-      initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 0.3, scale: 1 }}
-      transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        position: "absolute",
-        [top ? "top" : "bottom"]: 10, [left ? "left" : "right"]: 10,
-        width: 16, height: 16,
-        borderTop: top ? "2px solid rgba(255,255,255,0.3)" : "none",
-        borderBottom: !top ? "2px solid rgba(255,255,255,0.3)" : "none",
-        borderLeft: left ? "2px solid rgba(255,255,255,0.3)" : "none",
-        borderRight: !left ? "2px solid rgba(255,255,255,0.3)" : "none",
-        pointerEvents: "none", zIndex: 30,
-      }}
-    />
-  );
-}
-
-// ─── Page root ────────────────────────────────────────────────────────────
-export default function TypeCPage() {
-  return (
-    <section className="bg-brand-paper dark:bg-brand-dark transition-colors duration-500 relative overflow-hidden">
-      <motion.div aria-hidden className="absolute pointer-events-none"
-        style={{ top: "-10%", left: "-8%", width: 500, height: 500, filter: "blur(60px)",
-          background: "radial-gradient(circle, rgba(4,98,65,0.07) 0%, transparent 70%)" }}
-        animate={{ scale: [1, 1.12, 1], x: [0, 20, 0] }}
-        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div aria-hidden className="absolute pointer-events-none"
-        style={{ bottom: "5%", right: "-6%", width: 400, height: 400, filter: "blur(50px)",
-          background: "radial-gradient(circle, rgba(4,98,65,0.05) 0%, transparent 70%)" }}
-        animate={{ scale: [1, 1.08, 1], y: [0, -16, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-      />
-
-      <div className="px-6 md:px-16 pt-20 pb-12 relative">
-        <div className="max-w-[1600px] mx-auto">
-          <HeroCard />
-          <SubtitleText />
-          <DataServicingSection />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ─── Hero card ────────────────────────────────────────────────────────────
 function HeroCard() {
   return (
@@ -267,16 +528,20 @@ function HeroCard() {
                  border border-[#dde8e2] dark:border-white/10
                  bg-white dark:bg-[#0d2018]
                  shadow-[0_12px_56px_rgba(4,98,65,0.10)] dark:shadow-[0_12px_56px_rgba(0,0,0,0.5)]
-                 grid grid-cols-1 md:grid-cols-[1fr_1.15fr] min-h-[300px] relative"
+                 grid grid-cols-1 md:grid-cols-2 min-h-[400px] relative"
     >
-      <motion.div aria-hidden className="absolute top-0 left-0 right-0 h-px"
+      {/* Top shimmer */}
+      <motion.div aria-hidden className="absolute top-0 left-0 right-0 h-px z-10"
         style={{ background: "linear-gradient(90deg, transparent, rgba(4,98,65,0.4), transparent)" }}
         initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }}
         transition={{ duration: 1, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
       />
 
-      <div className="p-11 md:p-12 pr-8 md:pr-6 pb-16 flex flex-col justify-between relative z-10">
+      {/* ── Left panel ── */}
+      <div className="p-10 flex flex-col justify-between relative z-10
+                      border-b md:border-b-0 md:border-r border-[#dde8e2] dark:border-white/10">
         <div>
+          {/* Badge */}
           <motion.div
             initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.18, duration: 0.5 }}
@@ -292,7 +557,7 @@ function HeroCard() {
             </span>
           </motion.div>
 
-          <h1 className="text-4xl md:text-5xl font-black leading-tight mb-4 text-[#0f2318] dark:text-white overflow-visible">
+          <h1 className="text-4xl md:text-[44px] font-black leading-tight mb-5 text-[#0f2318] dark:text-white">
             <SplitReveal text="Type C —" delay={0.22} />
             <br />
             <span className="text-[#046241] dark:text-[#FFB347]">
@@ -303,33 +568,68 @@ function HeroCard() {
           <motion.p
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.48, duration: 0.55 }}
-            className="text-base leading-relaxed text-[#1a3326]/70 dark:text-white/70 max-w-md"
+            className="text-[13.5px] leading-relaxed text-[#1a3326]/65 dark:text-white/55 max-w-sm"
           >
-            AI data solutions across specific industry verticals including autonomous driving data annotation,
-            in-vehicle data collection and specialized data services for industry, enterprise or private LLM.
+            AI data solutions across specific industry verticals including autonomous driving
+            data annotation, in-vehicle data collection and specialized data services for
+            industry, enterprise or private LLM.
           </motion.p>
+
+          {/* Feature tags */}
+          <div className="flex flex-wrap gap-2 mt-5">
+            {["Autonomous Driving", "2D & 3D Annotation", "99% Accuracy", "Enterprise LLM"].map((tag, i) => (
+              <motion.span
+                key={tag}
+                initial={{ opacity: 0, scale: 0.82 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.58 + i * 0.07, duration: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                className="text-[11px] px-3 py-1 rounded-full
+                           border border-[#046241]/15 dark:border-white/10
+                           text-[#046241]/80 dark:text-white/50"
+              >
+                {tag}
+              </motion.span>
+            ))}
+          </div>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.58, duration: 0.45 }} className="mt-8">
+          transition={{ delay: 0.62, duration: 0.45 }} className="mt-8">
           <MagneticLink
             href="/contact"
-            className="inline-flex items-center w-fit
+            className="inline-flex items-center gap-3
                        bg-[#046241] dark:bg-[#FFB347]
                        text-white dark:text-[#0f2318]
-                       px-5 py-2.5 rounded-full text-[12px] font-black uppercase tracking-widest
+                       px-5 py-3 rounded-full text-[11px] font-black uppercase tracking-widest
                        shadow-lg shadow-[#046241]/25 dark:shadow-[#FFB347]/25"
           >
-            <span className="truncate">Contact Us</span>
-            <motion.svg className="ml-3 w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden
+            <span>Contact Us</span>
+            <motion.svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" aria-hidden
               animate={{ x: [0, 3, 0] }} transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}>
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round" />
             </motion.svg>
           </MagneticLink>
         </motion.div>
       </div>
 
-      <HeroShapes />
+      {/* ── Right panel — pipeline ── */}
+      <div className="relative p-8 bg-[#f2f7f4] dark:bg-[#091911] flex flex-col overflow-hidden">
+        <DotGrid />
+
+        <motion.p
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="text-[10px] font-black uppercase tracking-[0.22em]
+                     text-[#0f2318]/35 dark:text-white/30 mb-4 relative z-10"
+        >
+          Autonomous driving data pipeline
+        </motion.p>
+
+        <div className="relative z-10 flex flex-col flex-1">
+          <PipelineDiagram />
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -385,13 +685,8 @@ function DataServicingSection() {
         </div>
         <div className="hidden lg:flex items-center gap-2">
           {BLOCKS.map((block, i) => (
-            <motion.button
-              key={block.num}
-              onMouseEnter={() => setDesktopActive(i)}
-              onFocus={() => setDesktopActive(i)}
-              className="focus:outline-none"
-              whileTap={{ scale: 0.9 }}
-            >
+            <motion.button key={block.num} onMouseEnter={() => setDesktopActive(i)}
+              onFocus={() => setDesktopActive(i)} className="focus:outline-none" whileTap={{ scale: 0.9 }}>
               <motion.div
                 animate={{ width: desktopActive === i ? 30 : 8, opacity: desktopActive === i ? 1 : 0.3 }}
                 transition={{ type: "spring", stiffness: 340, damping: 28 }}
@@ -400,15 +695,10 @@ function DataServicingSection() {
             </motion.button>
           ))}
         </div>
-
         <div className="hidden md:flex lg:hidden items-center gap-2">
           {BLOCKS.map((block, i) => (
-            <motion.button
-              key={block.num}
-              onClick={() => setMobileActive(i)}
-              className="focus:outline-none"
-              whileTap={{ scale: 0.9 }}
-            >
+            <motion.button key={block.num} onClick={() => setMobileActive(i)}
+              className="focus:outline-none" whileTap={{ scale: 0.9 }}>
               <motion.div
                 animate={{ width: mobileActive === i ? 30 : 8, opacity: mobileActive === i ? 1 : 0.3 }}
                 transition={{ type: "spring", stiffness: 340, damping: 28 }}
@@ -421,33 +711,22 @@ function DataServicingSection() {
 
       <div className="hidden lg:flex gap-3 h-[560px]" onMouseLeave={() => setDesktopActive(null)}>
         {BLOCKS.map((block, i) => (
-          <ExpandPanelCard
-            key={block.num}
-            block={block}
-            image={SLIDE_IMAGES[i]}
-            index={i}
-            isActive={i === desktopActive}
-            onActivate={() => setDesktopActive(i)}
-          />
+          <ExpandPanelCard key={block.num} block={block} image={SLIDE_IMAGES[i]} index={i}
+            isActive={i === desktopActive} onActivate={() => setDesktopActive(i)} />
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:hidden">
         {BLOCKS.map((block, i) => (
-          <MobilePanelCard
-            key={block.num}
-            block={block}
-            image={SLIDE_IMAGES[i]}
-            index={i}
-            isActive={i === mobileActive}
-            onActivate={() => setMobileActive(i)}
-          />
+          <MobilePanelCard key={block.num} block={block} image={SLIDE_IMAGES[i]} index={i}
+            isActive={i === mobileActive} onActivate={() => setMobileActive(i)} />
         ))}
       </div>
     </motion.section>
   );
 }
 
+// ─── Expand panel card (desktop) ─────────────────────────────────────────
 type ExpandPanelCardProps = {
   block: (typeof BLOCKS)[number];
   image: string;
@@ -458,15 +737,10 @@ type ExpandPanelCardProps = {
 
 const ExpandPanelCard: React.FC<ExpandPanelCardProps> = ({ block, image, index, isActive, onActivate }) => {
   const [hovered, setHovered] = useState(false);
-
   return (
-    <motion.button
-      type="button"
-      onMouseEnter={onActivate}
-      onFocus={onActivate}
-      onClick={onActivate}
-      onHoverStart={() => setHovered(true)}
-      onHoverEnd={() => setHovered(false)}
+    <motion.button type="button"
+      onMouseEnter={onActivate} onFocus={onActivate} onClick={onActivate}
+      onHoverStart={() => setHovered(true)} onHoverEnd={() => setHovered(false)}
       animate={{
         flexGrow: isActive ? 4.8 : 1,
         filter: isActive ? "saturate(1)" : hovered ? "saturate(0.9)" : "saturate(0.72)",
@@ -479,65 +753,46 @@ const ExpandPanelCard: React.FC<ExpandPanelCardProps> = ({ block, image, index, 
       aria-expanded={isActive}
       style={{ willChange: "transform, filter, flex-grow" }}
     >
-      <motion.div
-        className="absolute inset-0"
+      <motion.div className="absolute inset-0"
         animate={{ y: [0, -7, 0] }}
-        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.28 }}
-      >
-        <motion.img
-          src={image}
-          alt={block.title}
+        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut", delay: index * 0.28 }}>
+        <motion.img src={image} alt={block.title}
           animate={{ scale: isActive ? 1.05 : hovered ? 1.02 : 1 }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
+          className="absolute inset-0 w-full h-full object-cover" />
         <motion.div
           animate={{ opacity: isActive ? 1 : hovered ? 0.92 : 0.82 }}
-          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10"
-        />
-
+          transition={{ duration: 0.32 }}
+          className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
         <AnimatePresence mode="wait" initial={false}>
           {isActive ? (
-            <motion.div
-              key="expanded"
-              initial={{ opacity: 0, y: 22 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 12 }}
+            <motion.div key="expanded"
+              initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute inset-x-0 bottom-0 p-6"
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/70 mb-1">
-                {block.label}
-              </p>
+              className="absolute inset-x-0 bottom-0 p-6">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/70 mb-1">{block.label}</p>
               <h3 className="text-[34px] leading-none font-black text-white tracking-[-0.03em] mb-2">
                 {block.num} {block.title}
               </h3>
-              <p className="text-[13px] leading-relaxed text-white/80 max-w-[90%] mb-4">
-                {block.body}
-              </p>
+              <p className="text-[13px] leading-relaxed text-white/80 max-w-[90%] mb-4">{block.body}</p>
               <div className="flex flex-wrap gap-2">
                 {block.features.slice(0, 3).map((feature) => (
-                  <span
-                    key={feature}
+                  <span key={feature}
                     className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold
-                               bg-white/10 border border-white/20 text-white/90 backdrop-blur-sm"
-                  >
+                               bg-white/10 border border-white/20 text-white/90 backdrop-blur-sm">
                     {feature}
                   </span>
                 ))}
               </div>
             </motion.div>
           ) : (
-            <motion.div
-              key="collapsed"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute inset-0 p-4 flex flex-col items-center justify-between"
-            >
-              <span className="mt-1 text-[16px] font-extrabold uppercase tracking-[0.14em] text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+            <motion.div key="collapsed"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.26 }}
+              className="absolute inset-0 p-4 flex flex-col items-center justify-between">
+              <span className="mt-1 text-[16px] font-extrabold uppercase tracking-[0.14em] text-white
+                                drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+                style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
                 {block.title}
               </span>
               <span className="text-[54px] font-black leading-none tracking-[-0.06em] text-white">
@@ -551,6 +806,7 @@ const ExpandPanelCard: React.FC<ExpandPanelCardProps> = ({ block, image, index, 
   );
 };
 
+// ─── Mobile panel card ────────────────────────────────────────────────────
 type MobilePanelCardProps = {
   block: (typeof BLOCKS)[number];
   image: string;
@@ -559,52 +815,67 @@ type MobilePanelCardProps = {
   onActivate: () => void;
 };
 
-const MobilePanelCard: React.FC<MobilePanelCardProps> = ({ block, image, index, isActive, onActivate }) => {
-  return (
-    <motion.button
-      type="button"
-      onClick={onActivate}
-      className="relative w-full rounded-2xl overflow-hidden text-left
-                 border border-[#dce6e0] dark:border-transparent"
-      animate={{ height: isActive ? 286 : 132 }}
-      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-      aria-expanded={isActive}
-    >
-      <motion.div
-        className="absolute inset-0"
-        animate={{ y: [0, -4, 0] }}
-        transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut", delay: index * 0.22 }}
-      >
-        <img src={image} alt={block.title} className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />
-
-        <div className="relative h-full p-4 flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">{block.label}</p>
-              <h3 className="text-[22px] font-black leading-none text-white">{block.num} {block.title}</h3>
-            </div>
-            <span className="text-[34px] font-black leading-none text-white tracking-[-0.05em]">{block.num}</span>
+const MobilePanelCard: React.FC<MobilePanelCardProps> = ({ block, image, index, isActive, onActivate }) => (
+  <motion.button type="button" onClick={onActivate}
+    className="relative w-full rounded-2xl overflow-hidden text-left
+               border border-[#dce6e0] dark:border-transparent"
+    animate={{ height: isActive ? 286 : 132 }}
+    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+    aria-expanded={isActive}>
+    <motion.div className="absolute inset-0"
+      animate={{ y: [0, -4, 0] }}
+      transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut", delay: index * 0.22 }}>
+      <img src={image} alt={block.title} className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/15" />
+      <div className="relative h-full p-4 flex flex-col justify-between">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/70 mb-1">{block.label}</p>
+            <h3 className="text-[22px] font-black leading-none text-white">{block.num} {block.title}</h3>
           </div>
-
-          <AnimatePresence>
-            {isActive && (
-              <motion.p
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.24 }}
-                className="text-[13px] leading-relaxed text-white/85"
-              >
-                {block.body}
-              </motion.p>
-            )}
-          </AnimatePresence>
+          <span className="text-[34px] font-black leading-none text-white tracking-[-0.05em]">{block.num}</span>
         </div>
-      </motion.div>
-    </motion.button>
+        <AnimatePresence>
+          {isActive && (
+            <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.24 }}
+              className="text-[13px] leading-relaxed text-white/85">
+              {block.body}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  </motion.button>
+);
+
+// ─── Page root ────────────────────────────────────────────────────────────
+export default function TypeCPage() {
+  return (
+    <section className="bg-brand-paper dark:bg-brand-dark transition-colors duration-500 relative overflow-hidden">
+      <motion.div aria-hidden className="absolute pointer-events-none"
+        style={{
+          top: "-10%", left: "-8%", width: 500, height: 500, filter: "blur(60px)",
+          background: "radial-gradient(circle, rgba(4,98,65,0.07) 0%, transparent 70%)"
+        }}
+        animate={{ scale: [1, 1.12, 1], x: [0, 20, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <motion.div aria-hidden className="absolute pointer-events-none"
+        style={{
+          bottom: "5%", right: "-6%", width: 400, height: 400, filter: "blur(50px)",
+          background: "radial-gradient(circle, rgba(4,98,65,0.05) 0%, transparent 70%)"
+        }}
+        animate={{ scale: [1, 1.08, 1], y: [0, -16, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+      />
+      <div className="px-6 md:px-16 pt-20 pb-12 relative">
+        <div className="max-w-[1600px] mx-auto">
+          <HeroCard />
+          <SubtitleText />
+          <DataServicingSection />
+        </div>
+      </div>
+    </section>
   );
-};
-
-
-
+}
